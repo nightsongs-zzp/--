@@ -1,57 +1,55 @@
-(* 任务二：静电场计算（最终无冲突版） *)
+(* 静电场计算终极解决版（无符号嵌套+纯数值求解） *)
 Clear["Global`*"];
 
-(* 1. 定义电势与电场（完全规避内置符号） *)
-qVal = 1; kVal = 1;
-pos1 = {1, 0, 0}; pos2 = {-1, 0, 0}; pos3 = {0, 0, 1};
+(* ========== 1. 定义纯数值电势/电场函数 ========== *)
+(* 总电势（纯数值计算） *)
+PotentialNum[x_, y_, z_] := Module[{r1, r2, r3},
+  r1 = Sqrt[(x - 1)^2 + y^2 + z^2];
+  r2 = Sqrt[(x + 1)^2 + y^2 + z^2];
+  r3 = Sqrt[x^2 + y^2 + (z - 1)^2];
+  1/r1 + 1/r2 - 2/r3  (* q=1, k=1 *)
+];
 
-(* 总电势（直接写显式表达式） *)
-Potential[x_, y_, z_] := 
-  kVal*(
-    qVal/Sqrt[(x - pos1[[1]])^2 + (y - pos1[[2]])^2 + (z - pos1[[3]])^2] +
-    qVal/Sqrt[(x - pos2[[1]])^2 + (y - pos2[[2]])^2 + (z - pos2[[3]])^2] -
-    2*qVal/Sqrt[(x - pos3[[1]])^2 + (y - pos3[[2]])^2 + (z - pos3[[3]])^2]
-  );
-
-(* 电场分量（直接求偏导，函数名无冲突） *)
-FieldX[x_, y_, z_] := -D[Potential[x, y, z], x];
-FieldY[x_, y_, z_] := -D[Potential[x, y, z], y];
-FieldZ[x_, y_, z_] := -D[Potential[x, y, z], z];
+(* 电场（用数值梯度计算，避免符号嵌套） *)
+EfieldNum[x_, y_, z_] := -N[Grad[PotentialNum[x, y, z], {x, y, z}]];
 
 
-(* 2. 绘制z=0平面的等势线与电场线 *)
-ContourPlotFig = ContourPlot[
-  Potential[x, y, 0], {x, -3, 3}, {y, -3, 3},
+(* ========== 2. 绘制z=0平面图形（无符号冲突） ========== *)
+Print["=== 任务1：z=0平面等势线+电场线 ==="];
+pltContour = ContourPlot[
+  PotentialNum[x, y, 0], {x, -3, 3}, {y, -3, 3},
   Contours -> 30, ContourStyle -> Hue[0.6],
   PlotLabel -> "z=0平面等势线", AxesLabel -> {"x", "y"}, PlotLegends -> Automatic
 ];
 
-StreamPlotFig = StreamPlot[
-  {FieldX[x, y, 0], FieldY[x, y, 0]}, {x, -3, 3}, {y, -3, 3},
+pltStream = StreamPlot[
+  EfieldNum[x, y, 0][[1 ;; 2]], {x, -3, 3}, {y, -3, 3},
   StreamStyle -> Red, PlotLabel -> "z=0平面电场线", AxesLabel -> {"x", "y"}
 ];
 
-Show[ContourPlotFig, StreamPlotFig, PlotLabel -> "等势线+电场线"]
+Show[pltContour, pltStream, PlotLabel -> "等势线+电场线"];
 
 
-(* 3. 求解电场零点（z轴上） *)
-(* 定义z轴上的电场z分量（仅关于z的函数） *)
-FieldZOnZAxis[z_] := FieldZ[0, 0, z] // Simplify;
+(* ========== 3. 求解电场零点（纯数值迭代） ========== *)
+Print["\n=== 任务2：电场零点求解 ==="];
+(* 定义z轴上的电场z分量（纯数值函数） *)
+EfieldZNum[z_] := EfieldNum[0, 0, z][[3]];
 
-(* 修正：合理初始猜测z=2 *)
-zeroSolution = FindRoot[FieldZOnZAxis[z] == 0, {z, 2}];
+(* 用数值迭代求解（指定精度，避免发散） *)
+zeroSolution = FindRoot[EfieldZNum[z] == 0, {z, 2}, WorkingPrecision -> 10];
 zeroPoint = {0, 0, z} /. zeroSolution;
 Print["电场零点坐标：", zeroPoint];
 
 
-(* 4. 标注零点的叠加图 *)
+(* ========== 4. 标注零点的叠加图 ========== *)
 Show[
-  ContourPlotFig, StreamPlotFig,
+  pltContour, pltStream,
   ListPlot[{{0, 0}}, PlotStyle -> {Black, PointSize[0.02]}],
   PlotLabel -> "等势线+电场线+电场零点"
-]
+];
 
 
-(* 5. 稳定性讨论 *)
-Print["\n平衡点稳定性：该零点是不稳定平衡点。
-物理意义：正电荷在零点附近受电场力会远离该点，微小扰动会破坏平衡。"]
+(* ========== 5. 稳定性分析 ========== *)
+Print["\n=== 任务2：稳定性分析 ==="];
+Print["结论：该零点是不稳定平衡点。
+物理意义：正电荷在零点附近受电场力会远离，微小扰动破坏平衡。"]
