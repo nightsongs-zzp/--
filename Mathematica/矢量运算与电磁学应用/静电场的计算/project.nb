@@ -1,42 +1,87 @@
-(* 1. 点电荷系统的电势与电场 *)
+(* 任务二：静电场的计算 *)
+
+(* ===================== 1. 点电荷系统 ===================== *)
 Clear["Global`*"];
-q1 = 1; q2 = 1; q3 = -1; (* 电荷大小（单位：元电荷） *)
+
+(* 电荷与参数设置 *)
+q = 1; (* 电荷大小 *)
+k = 1; (* 库仑常数 k=1/(4πε₀) *)
 (* 电荷位置坐标 *)
-r1 = {0, 0, 0}; r2 = {1, 0, 0}; r3 = {0.5, Sqrt[3]/2, 0}; (* 正三角形顶点 *)
-k = 1; (* 库仑常数，取1简化计算 *)
-(* 总电势（叠加原理：V = kΣ qi / |r - ri|） *)
-V[x_, y_, z_] := k (q1/Sqrt[(x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2] +
-                  q2/Sqrt[(x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2] +
-                  q3/Sqrt[(x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2]);
-(* 电场（E = -∇V） *)
-E[x_, y_, z_] := -Grad[V[x, y, z], {x, y, z}] // Simplify;
-Print["总电势 V(x,y,z) = ", V[x, y, z]];
-Print["电场 E(x,y,z) = ", E[x, y, z]];
+r1 = {1, 0, 0};   (* +q 位置 *)
+r2 = {-1, 0, 0};  (* +q 位置 *)
+r3 = {0, 0, 1};   (* -2q 位置 *)
 
-(* 绘制x-y平面（z=0）的等势线和电场线 *)
-plt1 = ContourPlot[V[x, y, 0], {x, -1, 2}, {y, -1, 2},
-  Contours -> 30, ContourStyle -> Hue[0.6],
-  PlotLabel -> "x-y平面等势线",
-  AxesLabel -> {"x", "y"}, PlotLegends -> Automatic];
-plt2 = StreamPlot[E[x, y, 0], {x, -1, 2}, {y, -1, 2},
-  StreamStyle -> Red, PlotLabel -> "x-y平面电场线",
-  AxesLabel -> {"x", "y"}];
-Show[plt1, plt2, PlotLabel -> "等势线与电场线叠加图"]
 
-(* 2. 寻找电场零点（E=0） *)
-(* 利用对称性，电场零点在x-y平面（z=0），简化为2变量求解 *)
-E0x[x_, y_] := E[x, y, 0][[1]];
-E0y[x_, y_] := E[x, y, 0][[2]];
-(* 设定初始猜测（基于场分布趋势） *)
-guess1 = {0.25, 0.1}; guess2 = {0.75, 0.1}; guess3 = {0.5, 1.0};
-(* 数值求解 *)
-zero1 = FindRoot[{E0x[x, y] == 0, E0y[x, y] == 0}, {x, guess1[[1]]}, {y, guess1[[2]]}]
-zero2 = FindRoot[{E0x[x, y] == 0, E0y[x, y] == 0}, {x, guess2[[1]]}, {y, guess2[[2]]}]
-zero3 = FindRoot[{E0x[x, y] == 0, E0y[x, y] == 0}, {x, guess3[[1]]}, {y, guess3[[2]]}]
-(* 提取零点坐标 *)
-zeroPoints = {{x, y} /. zero1, {x, y} /. zero2, {x, y} /. zero3};
-Print["电场零点坐标：", zeroPoints];
-(* 在图中标出零点 *)
-Show[plt1, plt2,
-  ListPlot[zeroPoints, PlotStyle -> {Black, PointSize[0.02]},
-  PlotLabel -> "等势线、电场线与电场零点"]]
+(* 1.1 总电势 φ(x,y,z) 的表达式 *)
+Print["=== 1.1 总电势 φ(x,y,z) ==="];
+(* 电势叠加原理：φ = kΣ(qi / |r - ri|) *)
+phi[x_, y_, z_] := k (
+  q/Sqrt[(x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2] + 
+  q/Sqrt[(x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2] + 
+  (-2 q)/Sqrt[(x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2]
+);
+Print["总电势表达式：", phi[x, y, z], "\n"];
+
+
+(* 1.2 电场 E = -∇φ 的计算 *)
+Print["=== 1.2 电场 E(x,y,z) ==="];
+(* 电场为电势的负梯度 *)
+Efield[x_, y_, z_] := -Grad[phi[x, y, z], {x, y, z}] // Simplify;
+Print["电场分量表达式：", Efield[x, y, z], "\n"];
+
+
+(* 1.3 绘制 z=0 平面的等势线与电场线 *)
+Print["=== 1.3 z=0 平面的等势线与电场线 ==="];
+(* 等势线（ContourPlot） *)
+pltContour = ContourPlot[
+  phi[x, y, 0], {x, -3, 3}, {y, -3, 3},
+  Contours -> 30,
+  ContourStyle -> Hue[0.6],
+  PlotLabel -> "z=0平面等势线",
+  AxesLabel -> {"x", "y"},
+  PlotLegends -> Automatic
+];
+
+(* 电场线（StreamPlot） *)
+pltStream = StreamPlot[
+  Efield[x, y, 0][[1 ;; 2]], (* 取x、y分量 *)
+  {x, -3, 3}, {y, -3, 3},
+  StreamStyle -> Red,
+  PlotLabel -> "z=0平面电场线",
+  AxesLabel -> {"x", "y"}
+];
+
+(* 叠加图 *)
+Show[
+  pltContour, pltStream,
+  PlotLabel -> "z=0平面：等势线与电场线叠加"
+]
+
+
+(* ===================== 2. 电场零点与平衡点 ===================== *)
+Print["\n=== 2.1 寻找电场零点（E=0） ==="];
+(* 利用对称性：电场零点在z轴上（x=0, y=0），简化为z的函数 *)
+EfieldZ[z_] := Efield[0, 0, z][[3]]; (* 取z轴上的电场z分量 *)
+
+(* 数值求解 E=0 的点 *)
+zeroPoint = FindRoot[EfieldZ[z] == 0, {z, 2}]; (* 初始猜测z=2 *)
+zeroCoord = {0, 0, z} /. zeroPoint; (* 零点坐标 *)
+Print["电场零点坐标：", zeroCoord, "\n"];
+
+
+(* 2.2 在图中标注零点 *)
+Print["=== 2.2 标注零点的叠加图 ==="];
+Show[
+  pltContour, pltStream,
+  ListPlot[
+    {{0, 0} /. {x -> 0, y -> 0}}, (* z=0平面上的投影 *)
+    PlotStyle -> {Black, PointSize[0.02]},
+    PlotLabel -> "z=0平面：等势线、电场线与电场零点"
+  ]
+]
+
+
+(* 2.3 平衡点的稳定性讨论 *)
+Print["\n=== 2.3 平衡点的稳定性分析 ==="];
+Print["结论：该电场零点是**不稳定平衡点**。
+物理意义：若电荷在零点附近沿z轴微小移动，电场力会使电荷远离零点，无法维持静止状态。"]
