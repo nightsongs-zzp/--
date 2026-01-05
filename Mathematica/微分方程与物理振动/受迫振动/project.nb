@@ -1,0 +1,36 @@
+(* 任务二：受迫振动 *)
+
+ClearAll["Global`*"];
+(* 参数设置 *)
+m = 1; k = 1; γ = 0.2; F0 = 1;
+
+(* 稳态响应：我们要求解稳态振幅 A(ω) *)
+(* 对于受迫振动，稳态解为 x(t) = A cos(ω t - δ)，其中 A 是振幅 *)
+(* 我们可以从复数解法得到 A = F0 / Sqrt[(k - m ω^2)^2 + (γ ω)^2] *)
+A[ω_] := F0 / Sqrt[(k - m ω^2)^2 + (γ ω)^2]
+
+(* 绘制振幅-频率响应曲线 *)
+Plot[A[ω], {ω, 0, 3}, PlotRange -> All, 
+ AxesLabel -> {"ω", "Amplitude A(ω)"}, 
+ PlotLabel -> "Resonance Curve", GridLines -> Automatic]
+
+(* 寻找共振频率和最大振幅 *)
+(* 共振频率：ω_r = Sqrt[k/m - (γ^2/(2m^2))] 当欠阻尼时 *)
+ωr = Sqrt[k/m - (γ^2/(2 m^2))];
+Amax = A[ωr];
+Print["Resonance frequency: ω_r = ", ωr];
+Print["Maximum amplitude: A_max = ", Amax];
+
+(* 数值求解：用 NDSolve 求解初值问题 *)
+(* 定义驱动频率的列表 *)
+ωlist = {0.5, 1.0, 1.5};
+(* 对于每个ω，求解并绘图 *)
+Do[
+ eqn = m x''[t] + γ x'[t] + k x[t] == F0 Cos[ω t];
+ sol = NDSolve[{eqn, x[0] == 0, x'[0] == 0}, x[t], {t, 0, 50}];
+ xsol[t_] = x[t] /. sol[[1]];
+ Plot[xsol[t], {t, 0, 50}, PlotRange -> All, 
+  AxesLabel -> {"t", "x(t)"}, 
+  PlotLabel -> StringForm["Forced Oscillation with ω = ``", ω]],
+ {ω, ωlist}
+]
