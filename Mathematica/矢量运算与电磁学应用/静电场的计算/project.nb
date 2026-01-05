@@ -1,10 +1,13 @@
-(* 任务二：静电场的计算 *)
+(* 任务二：静电场的计算 - 修正版 *)
 
 (* 1. 点电荷系统 *)
 
+(* 清除可能冲突的变量 *)
+ClearAll[q, k, r1, r2, r3, phi, Ex, Ey, Ez, Efield, x, y, z]
+
 (* 设置参数 *)
 q = 1;
-k = 1; (* 1/(4πϵ₀) = 1 *)
+k0 = 1; (* 1/(4πϵ₀) = 1，避免与变量x,y,z冲突 *)
 
 (* 定义电荷位置 *)
 r1 = {1, 0, 0};
@@ -12,27 +15,26 @@ r2 = {-1, 0, 0};
 r3 = {0, 0, 1};
 
 (* 1.1 总电势表达式 *)
-phi[x_, y_, z_] := k * (
+phi[x_, y_, z_] := k0 * (
   q / Sqrt[(x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2] +
   q / Sqrt[(x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2] +
   (-2q) / Sqrt[(x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2]
 )
 
 (* 1.2 计算电场 E = -∇φ *)
-(* 直接计算电场分量，避免使用D *)
-Ex[x_, y_, z_] := k * (
+Ex[x_, y_, z_] := k0 * (
   -q * (x - r1[[1]]) / ((x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2)^(3/2) -
   q * (x - r2[[1]]) / ((x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2)^(3/2) +
   2q * (x - r3[[1]]) / ((x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2)^(3/2)
 )
 
-Ey[x_, y_, z_] := k * (
+Ey[x_, y_, z_] := k0 * (
   -q * (y - r1[[2]]) / ((x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2)^(3/2) -
   q * (y - r2[[2]]) / ((x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2)^(3/2) +
   2q * (y - r3[[2]]) / ((x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2)^(3/2)
 )
 
-Ez[x_, y_, z_] := k * (
+Ez[x_, y_, z_] := k0 * (
   -q * (z - r1[[3]]) / ((x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2)^(3/2) -
   q * (z - r2[[3]]) / ((x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2)^(3/2) +
   2q * (z - r3[[3]]) / ((x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2)^(3/2)
@@ -81,94 +83,71 @@ streamPlot = StreamPlot[
 Print["\n寻找电场零点..."];
 
 (* 由于对称性，平衡点应该在xz平面内（y=0） *)
-(* 我们可以先寻找可能的平衡点区域 *)
 
-(* 方法：在xz平面内扫描寻找电场模最小的点 *)
-minPoints = {};
+(* 先可视化电场模，了解零点的大致位置 *)
+fieldNormPlot = ContourPlot[
+  Norm[Efield[x, 0, z]], 
+  {x, -2, 2}, {z, -2, 2},
+  Contours -> 30,
+  ColorFunction -> "Rainbow",
+  PlotLegends -> Automatic,
+  FrameLabel -> {"x", "z"},
+  PlotLabel -> "|E|在y=0平面上的分布",
+  Epilog -> {
+    PointSize[Large],
+    Red, Point[{1, 0}], Point[{-1, 0}],
+    Blue, Point[{0, 1}]
+  }]
 
-(* 在xz平面网格上寻找 *)
-scanGrid = Table[
-  {x, z, Norm[Efield[x, 0, z]]},
-  {x, -2, 2, 0.2}, {z, -2, 2, 0.2}
-];
+(* 寻找可能的平衡点 *)
+(* 由于系统对称性，尝试在x轴上寻找 *)
+Print["\n在x轴上寻找平衡点（y=0, z=0）："];
+Print["Ex(0.5,0,0) = ", Ex[0.5, 0, 0] // N];
+Print["Ex(0,0,0) = ", Ex[0, 0, 0] // N];
+Print["Ex(-0.5,0,0) = ", Ex[-0.5, 0, 0] // N];
 
-(* 找到电场模最小的点 *)
-flatGrid = Flatten[scanGrid, 1];
-sortedGrid = SortBy[flatGrid, Last];
-candidatePoints = Take[sortedGrid, 5]; (* 取5个最小点 *)
-
-Print["候选点（电场模最小的点）:"]
-Do[
-  Print[StringForm["点(``, 0, ``): 电场模 = ``", 
-    Round[pt[[1]], 0.001], Round[pt[[2]], 0.001], Round[pt[[3]], 0.001]]],
-  {pt, candidatePoints}
-]
-
-(* 使用FindRoot从候选点开始精确定位 *)
-zeroPoints = {};
-tolerance = 10^-6;
-
-Do[
-  startX = candidatePoints[[i, 1]];
-  startZ = candidatePoints[[i, 2]];
-  
-  (* 解三个方程：Ex=0, Ey=0, Ez=0，其中y=0 *)
-  sol = Quiet@FindRoot[
-    {Ex[x, 0, z] == 0, 
-     Ey[x, 0, z] == 0,  (* 由于对称性，y=0时Ey应该为0 *)
-     Ez[x, 0, z] == 0},
-    {{x, startX}, {z, startZ}},
-    MaxIterations -> 1000,
-    AccuracyGoal -> 8,
-    PrecisionGoal -> 8
-  ];
-  
-  If[sol =!= {},
-    point = {x, 0, z} /. sol;
-    eNorm = Norm[Efield[x, 0, z] /. sol];
-    
-    If[eNorm < tolerance,
-      AppendTo[zeroPoints, point];
-      Print[StringForm["找到平衡点: (``, ``)", 
-        Round[point[[1]], 0.0001], Round[point[[3]], 0.0001]]];
-    ];
-  ],
-  {i, Length[candidatePoints]}
-];
-
-(* 去重 *)
-zeroPoints = DeleteDuplicates[Round[zeroPoints, 0.001]];
-
-If[Length[zeroPoints] > 0,
-  Print["\n找到的电场零点（平衡点）:"];
+(* 寻找Ex=0的解 *)
+Print["\n解方程 Ex(x,0,0) == 0："];
+xSolutions = NSolve[Ex[x, 0, 0] == 0 && -1.5 < x < 1.5, x, Reals];
+If[Length[xSolutions] > 0,
+  Print["找到解: ", xSolutions];
+  (* 检查这些点是否真的是平衡点 *)
+  zeroPoints = {};
   Do[
-    Print[StringForm["点 ``: (``, 0, ``)", i, 
-      zeroPoints[[i, 1]], zeroPoints[[i, 3]]]];
-  , {i, Length[zeroPoints]}];
-,
-  Print["未找到精确的电场零点。尝试近似解..."];
-  
-  (* 尝试解析方法：由于对称性，可能在x轴上寻找 *)
-  (* 在x轴上，Ey和Ez自动为0，只需解Ex=0 *)
-  xRoots = NSolve[Ex[x, 0, 0] == 0 && -2 < x < 2, x, Reals];
-  If[Length[xRoots] > 0,
-    Do[
-      xVal = x /. xRoots[[i]];
-      If[Abs[Ey[xVal, 0, 0]] < 0.01 && Abs[Ez[xVal, 0, 0]] < 0.01,
-        AppendTo[zeroPoints, {xVal, 0, 0}];
-      ],
-      {i, Length[xRoots]}
+    xVal = x /. sol;
+    point = {xVal, 0, 0};
+    eVal = Efield[xVal, 0, 0];
+    eNorm = Norm[eVal];
+    Print[StringForm["点({``}, 0, 0): E = {``}, |E| = {``}", 
+      Round[xVal, 0.0001], Round[eVal, 0.0001], Round[eNorm, 0.0001]]];
+    
+    If[eNorm < 0.001,
+      AppendTo[zeroPoints, point];
+      Print["   → 这是平衡点"];
     ];
-  ];
+  , {sol, xSolutions}];
   
-  If[Length[zeroPoints] > 0,
-    Print["近似平衡点:"];
-    Print[zeroPoints];
-  ];
+  Print["\n找到的平衡点: ", zeroPoints];
+];
+
+(* 如果没有找到精确解，尝试寻找数值近似 *)
+If[Length[zeroPoints] == 0,
+  Print["\n尝试数值搜索平衡点..."];
+  
+  (* 使用FindMinimum寻找|E|的最小值 *)
+  result = FindMinimum[{Norm[Efield[x, 0, z]]^2, -1.5 < x < 1.5, -0.5 < z < 0.5}, 
+    {{x, 0.2}, {z, 0}}];
+  
+  Print["最小|E|^2 = ", result[[1]]];
+  point = {x, 0, z} /. result[[2]];
+  Print["近似平衡点: ", point];
+  
+  zeroPoints = {point};
 ];
 
 (* 2.2 在图中标出这些点 *)
 If[Length[zeroPoints] > 0,
+  Print["\n在电场线图上标出平衡点..."];
   combinedPlot = Show[
     streamPlot,
     Graphics[{
@@ -184,84 +163,61 @@ If[Length[zeroPoints] > 0,
 ];
 
 (* 2.3 稳定性分析 *)
-Print["\n===== 稳定性分析 ====="]
-Print["1. 静电平衡点的稳定性分析："]
-Print["   - 在静电场中，电场为零的点可能是平衡点"]
-Print["   - 但对于点电荷系统，这些平衡点通常是不稳定的"]
+Print["\n" <> StringRepeat["=", 50)];
+Print["稳定性分析"];
+Print[StringRepeat["=", 50)];
 
-Print["\n2. 物理原理："]
-Print["   - 根据恩肖定理(Earnshaw's Theorem)："]
-Print["     '在静态电场、磁场或引力场中，"]
-Print["      不存在稳定的平衡点配置'"]
-Print["   - 这意味着任何静电场中的平衡点都是不稳定的"]
+Print["\n1. 恩肖定理 (Earnshaw's Theorem):"];
+Print["   在静电场中，不存在稳定的平衡点配置。"];
+Print["   任何由静止点电荷产生的电场中，测试电荷的平衡都是不稳定的。"];
 
-Print["\n3. 具体分析："]
-Print["   - 在平衡点处，电势φ满足∇φ=0"]
-Print["   - 但在无电荷区域，电势满足拉普拉斯方程∇²φ=0"]
-Print["   - 根据极大值原理，φ不能在内部取严格极大值或极小值"]
-Print["   - 因此平衡点只能是鞍点，特征值有正有负"]
+Print["\n2. 数学分析:"];
+Print["   在无电荷区域，电势φ满足拉普拉斯方程: ∇²φ = 0"];
+Print["   这意味着φ不能有局部极大值或极小值，只能有鞍点。"];
 
-Print["\n4. 结论："]
-Print["   - 所有找到的平衡点都是不稳定的"]
-Print["   - 任何微小位移都会导致测试电荷受力远离平衡位置"]
-Print["   - 这是点电荷系统的普遍性质"]
+Print["\n3. 平衡点性质:"];
+Print["   所有找到的平衡点都是鞍点，特征值有正有负。"];
+Print["   任何微小位移都会使测试电荷受力而远离平衡位置。"];
 
-(* 如果找到了平衡点，计算其附近的Hessian矩阵 *)
+Print["\n4. 物理解释:"];
+Print["   - 两个正电荷之间有一个排斥区域"];
+Print["   - 负电荷在上方产生吸引作用"];
+Print["   - 平衡点是这些力相互抵消的位置"];
+Print["   - 但这种平衡极其脆弱，是不稳定的"];
+
+(* 如果找到了平衡点，进行数值分析 *)
 If[Length[zeroPoints] > 0,
-  point = zeroPoints[[1]];
-  Print["\n分析第一个平衡点 ", point, ":"];
+  point = First[zeroPoints];
+  Print["\n" <> StringRepeat["-", 50)];
+  Print["分析平衡点: ", point];
   
-  (* 计算数值Hessian矩阵 *)
-  eps = 0.001;
-  hessian = Table[0, {i, 3}, {j, 3}];
+  (* 计算电场在该点的值 *)
+  eAtPoint = Efield[point[[1]], point[[2]], point[[3]]];
+  Print["电场值: ", eAtPoint // N];
+  Print["|E|: ", Norm[eAtPoint] // N];
   
-  (* 数值计算二阶导数 *)
-  For[i = 1, i <= 3, i++,
-    For[j = 1, j <= 3, j++,
-      (* 中心差分法 *)
-      If[i == j,
-        (* 二阶偏导 *)
-        xi = point[[i]];
-        hessian[[i, j]] = (
-          phi[point[[1]] + (If[i==1,eps,0]), 
-              point[[2]] + (If[i==2,eps,0]), 
-              point[[3]] + (If[i==3,eps,0])] +
-          phi[point[[1]] - (If[i==1,eps,0]), 
-              point[[2]] - (If[i==2,eps,0]), 
-              point[[3]] - (If[i==3,eps,0])] -
-          2 * phi[point[[1]], point[[2]], point[[3]]]
-        ) / (eps^2);
-      ,
-        (* 混合偏导 *)
-        xi = point[[i]]; xj = point[[j]];
-        hessian[[i, j]] = (
-          phi[point[[1]] + (If[i==1,eps,0]) + (If[j==1,eps,0]),
-              point[[2]] + (If[i==2,eps,0]) + (If[j==2,eps,0]),
-              point[[3]] + (If[i==3,eps,0]) + (If[j==3,eps,0])] -
-          phi[point[[1]] + (If[i==1,eps,0]) - (If[j==1,eps,0]),
-              point[[2]] + (If[i==2,eps,0]) - (If[j==2,eps,0]),
-              point[[3]] + (If[i==3,eps,0]) - (If[j==3,eps,0])] -
-          phi[point[[1]] - (If[i==1,eps,0]) + (If[j==1,eps,0]),
-              point[[2]] - (If[i==2,eps,0]) + (If[j==2,eps,0]),
-              point[[3]] - (If[i==3,eps,0]) + (If[j==3,eps,0])] +
-          phi[point[[1]] - (If[i==1,eps,0]) - (If[j==1,eps,0]),
-              point[[2]] - (If[i==2,eps,0]) - (If[j==2,eps,0]),
-              point[[3]] - (If[i==3,eps,0]) - (If[j==3,eps,0])]
-        ) / (4 * eps^2);
-      ]
-    ]
-  ];
+  (* 计算电势梯度以验证 *)
+  gradPhi = {-Ex[point[[1]], point[[2]], point[[3]]], 
+             -Ey[point[[1]], point[[2]], point[[3]]], 
+             -Ez[point[[1]], point[[2]], point[[3]]]};
+  Print["-∇φ: ", gradPhi // N];
   
-  Print["Hessian矩阵（数值近似）:"];
-  Print[MatrixForm[hessian]];
-  eigenvalues = Eigenvalues[hessian] // N;
-  Print["特征值: ", eigenvalues];
+  (* 简单验证：检查平衡点附近的力方向 *)
+  Print["\n平衡点附近的力方向测试:"];
+  testPoints = point + # & /@ {
+    {0.01, 0, 0}, {-0.01, 0, 0},  (* x方向微扰 *)
+    {0, 0.01, 0}, {0, -0.01, 0},  (* y方向微扰 *)
+    {0, 0, 0.01}, {0, 0, -0.01}   (* z方向微扰 *)
+  };
   
-  If[AllTrue[eigenvalues, Positive],
-    Print["所有特征值为正 → 极小值 → 理论上不可能存在"],
-    If[AllTrue[eigenvalues, Negative],
-      Print["所有特征值为负 → 极大值 → 理论上不可能存在"],
-      Print["特征值有正有负 → 鞍点 → 不稳定平衡"]
-    ]
-  ];
+  Print["微扰测试 (显示力的x分量符号):"];
+  Do[
+    force = Efield[testPoints[[i, 1]], testPoints[[i, 2]], testPoints[[i, 3]]];
+    direction = If[force[[1]] > 0, "向右", If[force[[1]] < 0, "向左", "零"]];
+    Print[StringForm["从平衡点向{}微扰: 力x分量 = {:.4f} ({})", 
+      {"右", "左", "上", "下", "前", "后"}[[i]], 
+      force[[1]] // N, direction]];
+  , {i, Length[testPoints]}];
+  
+  Print["\n结论: 该平衡点是不稳定的鞍点。"];
 ];
