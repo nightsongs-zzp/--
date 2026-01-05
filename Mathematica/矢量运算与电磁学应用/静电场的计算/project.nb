@@ -38,8 +38,8 @@ Show[ContourPlotFig, StreamPlotFig, PlotLabel -> "等势线+电场线"]
 (* 定义z轴上的电场z分量（仅关于z的函数） *)
 FieldZOnZAxis[z_] := FieldZ[0, 0, z] // Simplify;
 
-(* 数值求解（无符号冲突） *)
-zeroSolution = FindRoot[FieldZOnZAxis[z] == 0, {z, 3}];
+(* 修正：合理初始猜测z=2 *)
+zeroSolution = FindRoot[FieldZOnZAxis[z] == 0, {z, 2}];
 zeroPoint = {0, 0, z} /. zeroSolution;
 Print["电场零点坐标：", zeroPoint];
 
