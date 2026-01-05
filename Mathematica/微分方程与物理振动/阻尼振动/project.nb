@@ -1,0 +1,36 @@
+ClearAll["Global`*"];
+eqn = m x''[t] + γ x'[t] + k x[t] == 0;
+m = 1; k = 1;
+ics = {x[0] == 1, x'[0] == 0};
+
+(* 欠阻尼 γ=0.2 *)
+solUnder = DSolve[{eqn /. {γ -> 0.2}, ics}, x[t], t];
+xUnder[t_] = x[t] /. solUnder[[1]];
+
+(* 临界阻尼 γ=2 *)
+solCritical = DSolve[{eqn /. {γ -> 2}, ics}, x[t], t];
+xCritical[t_] = x[t] /. solCritical[[1]];
+
+(* 过阻尼 γ=4 *)
+solOver = DSolve[{eqn /. {γ -> 4}, ics}, x[t], t];
+xOver[t_] = x[t] /. solOver[[1]];
+
+(* 显示解 *)
+xUnder[t]
+xCritical[t]
+xOver[t]
+(* x(t) 曲线 *)
+Plot[{xUnder[t], xCritical[t], xOver[t]}, {t, 0, 15},
+ PlotStyle -> {{Thick, Blue}, {Thick, Red}, {Thick, Green}},
+ PlotLegends -> {"Underdamped (γ=0.2)", "Critical (γ=2)", "Overdamped (γ=4)"},
+ AxesLabel -> {"t", "x(t)"}, PlotLabel -> "Damped Harmonic Oscillator"]
+
+(* 相空间轨迹 *)
+vUnder[t_] = D[xUnder[t], t];
+vCritical[t_] = D[xCritical[t], t];
+vOver[t_] = D[xOver[t], t];
+ParametricPlot[{{xUnder[t], vUnder[t]}, {xCritical[t], vCritical[t]}, {xOver[t], vOver[t]}},
+ {t, 0, 15},
+ PlotStyle -> {{Thick, Blue}, {Thick, Red}, {Thick, Green}},
+ PlotLegends -> {"Underdamped", "Critical", "Overdamped"},
+ AxesLabel -> {"x", "x'"}, PlotLabel -> "Phase Space Trajectories"]
