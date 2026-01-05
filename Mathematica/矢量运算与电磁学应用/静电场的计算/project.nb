@@ -216,3 +216,68 @@ If[Length[equilibriumPoints] > 0,
 ];
 
 Print["\n任务二完成"]
+(* 替代方法：寻找电场最小值点 *)
+
+Print["\n=== 替代分析：寻找电场最小值点 ==="];
+
+(* 在 xz 平面上系统搜索 *)
+minValue = Infinity;
+minPoint = {0, 0};
+
+Do[
+  Do[
+    currentValue = fieldNormSquared[xv, zv];
+    If[currentValue < minValue,
+      minValue = currentValue;
+      minPoint = {xv, zv};
+    ],
+    {xv, -0.8, 0.8, 0.05}
+  ],
+  {zv, 0.1, 0.8, 0.05}
+];
+
+Print["网格搜索找到的最小点:"];
+Print["位置: x = ", minPoint[[1]], ", z = ", minPoint[[2]]];
+Print["|E|^2 = ", minValue];
+Print["|E| = ", Sqrt[minValue]];
+
+(* 检查该点电场 *)
+ExVal = Ex[minPoint[[1]], 0, minPoint[[2]]];
+EzVal = Ez[minPoint[[1]], 0, minPoint[[2]]];
+Print["电场分量: Ex = ", ExVal, ", Ez = ", EzVal];
+
+(* 判断是否接近平衡 *)
+If[Abs[ExVal] < 0.01 && Abs[EzVal] < 0.01,
+  Print["\n该点可视为近似平衡点"];
+  Print["虽然不是精确的E=0，但电场非常小"];
+,
+  Print["\n该点不是近似平衡点，电场分量仍然较大"];
+];
+
+(* 稳定性分析（即使不是精确零点） *)
+Print["\n=== 近似平衡点分析 ==="];
+Print["即使不是精确零点，我们仍可分析该点的力场特性"];
+
+(* 计算力场的散度和旋度 *)
+DivE = D[Ex[x, 0, z], x] + D[Ez[x, 0, z], z] /. 
+       {x -> minPoint[[1]], z -> minPoint[[2]]};
+
+Print["该点附近的电场散度: ∇·E = ", DivE];
+Print["在无电荷区域，根据高斯定律，∇·E = 0"];
+Print["实际计算值应接近0（验证计算精度）"];
+
+(* 绘制该点附近的力线 *)
+vectorPlot = StreamPlot[
+  {Ex[x, 0, z], Ez[x, 0, z]},
+  {x, minPoint[[1]] - 0.5, minPoint[[1]] + 0.5},
+  {z, minPoint[[2]] - 0.5, minPoint[[2]] + 0.5},
+  StreamPoints -> Fine,
+  StreamStyle -> Arrowheads[0.02],
+  FrameLabel -> {"x", "z"},
+  PlotLabel -> "近似平衡点附近的电场线",
+  Epilog -> {
+    PointSize[0.03],
+    Green, Point[minPoint],
+    Text["近似平衡点", minPoint + {0, 0.1}]
+  }
+]
