@@ -1,87 +1,267 @@
 (* 任务二：静电场的计算 *)
 
-(* ===================== 1. 点电荷系统 ===================== *)
-Clear["Global`*"];
+(* 1. 点电荷系统 *)
 
-(* 电荷与参数设置 *)
-q = 1; (* 电荷大小 *)
-k = 1; (* 库仑常数 k=1/(4\[Pi]\[CurlyEpsilon]₀) *)
-(* 电荷位置坐标 *)
-r1 = {1, 0, 0};   (* +q 位置 *)
-r2 = {-1, 0, 0};  (* +q 位置 *)
-r3 = {0, 0, 1};   (* -2q 位置 *)
+(* 设置参数 *)
+q = 1;
+k = 1; (* 1/(4πϵ₀) = 1 *)
 
+(* 定义电荷位置 *)
+r1 = {1, 0, 0};
+r2 = {-1, 0, 0};
+r3 = {0, 0, 1};
 
-(* 1.1 总电势 \[CurlyPhi](x,y,z) 的表达式 *)
-Print["=== 1.1 总电势 \[CurlyPhi](x,y,z) ==="];
-(* 电势叠加原理：\[CurlyPhi] = k\[CapitalSigma](qi / |r - ri|) *)
-phi[x_, y_, z_] := k (
-  q/Sqrt[(x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2] + 
-  q/Sqrt[(x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2] + 
-  (-2 q)/Sqrt[(x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2]
-);
-Print["总电势表达式：", phi[x, y, z], "\n"];
+(* 1.1 总电势表达式 *)
+phi[x_, y_, z_] := k * (
+  q / Sqrt[(x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2] +
+  q / Sqrt[(x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2] +
+  (-2q) / Sqrt[(x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2]
+)
 
+(* 1.2 计算电场 E = -∇φ *)
+(* 直接计算电场分量，避免使用D *)
+Ex[x_, y_, z_] := k * (
+  -q * (x - r1[[1]]) / ((x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2)^(3/2) -
+  q * (x - r2[[1]]) / ((x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2)^(3/2) +
+  2q * (x - r3[[1]]) / ((x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2)^(3/2)
+)
 
-(* 1.2 电场 E = -\[Del]\[CurlyPhi] 的计算 *)
-Print["=== 1.2 电场 E(x,y,z) ==="];
-(* 电场为电势的负梯度 *)
-Efield[x_, y_, z_] := -Grad[phi[x, y, z], {x, y, z}] // Simplify;
-Print["电场分量表达式：", Efield[x, y, z], "\n"];
+Ey[x_, y_, z_] := k * (
+  -q * (y - r1[[2]]) / ((x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2)^(3/2) -
+  q * (y - r2[[2]]) / ((x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2)^(3/2) +
+  2q * (y - r3[[2]]) / ((x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2)^(3/2)
+)
 
+Ez[x_, y_, z_] := k * (
+  -q * (z - r1[[3]]) / ((x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2)^(3/2) -
+  q * (z - r2[[3]]) / ((x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2)^(3/2) +
+  2q * (z - r3[[3]]) / ((x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2)^(3/2)
+)
 
-(* 1.3 绘制 z=0 平面的等势线与电场线 *)
-Print["=== 1.3 z=0 平面的等势线与电场线 ==="];
-(* 等势线（ContourPlot） *)
-pltContour = ContourPlot[
-  phi[x, y, 0], {x, -3, 3}, {y, -3, 3},
+(* 电场向量 *)
+Efield[x_, y_, z_] := {Ex[x, y, z], Ey[x, y, z], Ez[x, y, z]};
+
+Print["电势表达式: φ(x,y,z) = ", phi[x, y, z]]
+Print["\n电场分量:"]
+Print["Ex = ", Ex[x, y, z]]
+Print["Ey = ", Ey[x, y, z]]
+Print["Ez = ", Ez[x, y, z]]
+
+(* 1.3 绘制 z = 0 平面上的等势线 *)
+contourPlot = ContourPlot[phi[x, y, 0], {x, -3, 3}, {y, -3, 3},
   Contours -> 30,
-  ContourStyle -> Hue[0.6],
-  PlotLabel -> "z=0平面等势线",
-  AxesLabel -> {"x", "y"},
-  PlotLegends -> Automatic
-];
+  ColorFunction -> "TemperatureMap",
+  PlotLegends -> Automatic,
+  FrameLabel -> {"x", "y"},
+  PlotLabel -> "z=0平面上的等势线",
+  Epilog -> {
+    PointSize[Large], 
+    Red, Point[{1, 0}], Text["+q", {1.2, 0.2}],
+    Red, Point[{-1, 0}], Text["+q", {-1.2, 0.2}],
+    Blue, Point[{0, 0}], Text["-2q投影", {0, 0.3}]
+  }]
 
-(* 电场线（StreamPlot） *)
-pltStream = StreamPlot[
-  Efield[x, y, 0][[1 ;; 2]], (* 取x、y分量 *)
+(* 1.4 绘制 z = 0 平面上的电场线 *)
+streamPlot = StreamPlot[
+  {Ex[x, y, 0], Ey[x, y, 0]}, 
   {x, -3, 3}, {y, -3, 3},
-  StreamStyle -> Red,
-  PlotLabel -> "z=0平面电场线",
-  AxesLabel -> {"x", "y"}
+  StreamPoints -> Fine,
+  StreamColorFunction -> "Rainbow",
+  FrameLabel -> {"x", "y"},
+  PlotLabel -> "z=0平面上的电场线",
+  Epilog -> {
+    PointSize[Large],
+    Red, Point[{1, 0}], Point[{-1, 0}],
+    Blue, Point[{0, 0}]
+  }]
+
+(* 2. 找出电场零点 *)
+
+(* 2.1 寻找 E = 0 的点 *)
+Print["\n寻找电场零点..."];
+
+(* 由于对称性，平衡点应该在xz平面内（y=0） *)
+(* 我们可以先寻找可能的平衡点区域 *)
+
+(* 方法：在xz平面内扫描寻找电场模最小的点 *)
+minPoints = {};
+
+(* 在xz平面网格上寻找 *)
+scanGrid = Table[
+  {x, z, Norm[Efield[x, 0, z]]},
+  {x, -2, 2, 0.2}, {z, -2, 2, 0.2}
 ];
 
-(* 叠加图 *)
-Show[
-  pltContour, pltStream,
-  PlotLabel -> "z=0平面：等势线与电场线叠加"
+(* 找到电场模最小的点 *)
+flatGrid = Flatten[scanGrid, 1];
+sortedGrid = SortBy[flatGrid, Last];
+candidatePoints = Take[sortedGrid, 5]; (* 取5个最小点 *)
+
+Print["候选点（电场模最小的点）:"]
+Do[
+  Print[StringForm["点(``, 0, ``): 电场模 = ``", 
+    Round[pt[[1]], 0.001], Round[pt[[2]], 0.001], Round[pt[[3]], 0.001]]],
+  {pt, candidatePoints}
 ]
 
+(* 使用FindRoot从候选点开始精确定位 *)
+zeroPoints = {};
+tolerance = 10^-6;
 
-(* ===================== 2. 电场零点与平衡点 ===================== *)
-Print["\n=== 2.1 寻找电场零点（E=0） ==="];
-(* 利用对称性：电场零点在z轴上（x=0, y=0），简化为z的函数 *)
-EfieldZ[z_] := Efield[0, 0, z][[3]]; (* 取z轴上的电场z分量 *)
+Do[
+  startX = candidatePoints[[i, 1]];
+  startZ = candidatePoints[[i, 2]];
+  
+  (* 解三个方程：Ex=0, Ey=0, Ez=0，其中y=0 *)
+  sol = Quiet@FindRoot[
+    {Ex[x, 0, z] == 0, 
+     Ey[x, 0, z] == 0,  (* 由于对称性，y=0时Ey应该为0 *)
+     Ez[x, 0, z] == 0},
+    {{x, startX}, {z, startZ}},
+    MaxIterations -> 1000,
+    AccuracyGoal -> 8,
+    PrecisionGoal -> 8
+  ];
+  
+  If[sol =!= {},
+    point = {x, 0, z} /. sol;
+    eNorm = Norm[Efield[x, 0, z] /. sol];
+    
+    If[eNorm < tolerance,
+      AppendTo[zeroPoints, point];
+      Print[StringForm["找到平衡点: (``, ``)", 
+        Round[point[[1]], 0.0001], Round[point[[3]], 0.0001]]];
+    ];
+  ],
+  {i, Length[candidatePoints]}
+];
 
-(* 数值求解 E=0 的点 *)
-zeroPoint = FindRoot[EfieldZ[z] == 0, {z, 2}]; (* 初始猜测z=2 *)
-zeroCoord = {0, 0, z} /. zeroPoint; (* 零点坐标 *)
-Print["电场零点坐标：", zeroCoord, "\n"];
+(* 去重 *)
+zeroPoints = DeleteDuplicates[Round[zeroPoints, 0.001]];
 
+If[Length[zeroPoints] > 0,
+  Print["\n找到的电场零点（平衡点）:"];
+  Do[
+    Print[StringForm["点 ``: (``, 0, ``)", i, 
+      zeroPoints[[i, 1]], zeroPoints[[i, 3]]]];
+  , {i, Length[zeroPoints]}];
+,
+  Print["未找到精确的电场零点。尝试近似解..."];
+  
+  (* 尝试解析方法：由于对称性，可能在x轴上寻找 *)
+  (* 在x轴上，Ey和Ez自动为0，只需解Ex=0 *)
+  xRoots = NSolve[Ex[x, 0, 0] == 0 && -2 < x < 2, x, Reals];
+  If[Length[xRoots] > 0,
+    Do[
+      xVal = x /. xRoots[[i]];
+      If[Abs[Ey[xVal, 0, 0]] < 0.01 && Abs[Ez[xVal, 0, 0]] < 0.01,
+        AppendTo[zeroPoints, {xVal, 0, 0}];
+      ],
+      {i, Length[xRoots]}
+    ];
+  ];
+  
+  If[Length[zeroPoints] > 0,
+    Print["近似平衡点:"];
+    Print[zeroPoints];
+  ];
+];
 
-(* 2.2 在图中标注零点 *)
-Print["=== 2.2 标注零点的叠加图 ==="];
-Show[
-  pltContour, pltStream,
-  ListPlot[
-    {{0, 0} /. {x -> 0, y -> 0}}, (* z=0平面上的投影 *)
-    PlotStyle -> {Black, PointSize[0.02]},
-    PlotLabel -> "z=0平面：等势线、电场线与电场零点"
+(* 2.2 在图中标出这些点 *)
+If[Length[zeroPoints] > 0,
+  combinedPlot = Show[
+    streamPlot,
+    Graphics[{
+      PointSize[0.03],
+      Green, 
+      Point[{#[[1]], #[[2]]}] & /@ zeroPoints,
+      Black,
+      MapIndexed[Text[Style["●平衡点", 12, Bold], 
+        {#1[[1]], #1[[2]] + 0.3}] &, zeroPoints]
+    }],
+    PlotLabel -> "电场线与平衡点"
   ]
-]
+];
 
+(* 2.3 稳定性分析 *)
+Print["\n===== 稳定性分析 ====="]
+Print["1. 静电平衡点的稳定性分析："]
+Print["   - 在静电场中，电场为零的点可能是平衡点"]
+Print["   - 但对于点电荷系统，这些平衡点通常是不稳定的"]
 
-(* 2.3 平衡点的稳定性讨论 *)
-Print["\n=== 2.3 平衡点的稳定性分析 ==="];
-Print["结论：该电场零点是**不稳定平衡点**。
-物理意义：若电荷在零点附近沿z轴微小移动，电场力会使电荷远离零点，无法维持静止状态。"]
+Print["\n2. 物理原理："]
+Print["   - 根据恩肖定理(Earnshaw's Theorem)："]
+Print["     '在静态电场、磁场或引力场中，"]
+Print["      不存在稳定的平衡点配置'"]
+Print["   - 这意味着任何静电场中的平衡点都是不稳定的"]
+
+Print["\n3. 具体分析："]
+Print["   - 在平衡点处，电势φ满足∇φ=0"]
+Print["   - 但在无电荷区域，电势满足拉普拉斯方程∇²φ=0"]
+Print["   - 根据极大值原理，φ不能在内部取严格极大值或极小值"]
+Print["   - 因此平衡点只能是鞍点，特征值有正有负"]
+
+Print["\n4. 结论："]
+Print["   - 所有找到的平衡点都是不稳定的"]
+Print["   - 任何微小位移都会导致测试电荷受力远离平衡位置"]
+Print["   - 这是点电荷系统的普遍性质"]
+
+(* 如果找到了平衡点，计算其附近的Hessian矩阵 *)
+If[Length[zeroPoints] > 0,
+  point = zeroPoints[[1]];
+  Print["\n分析第一个平衡点 ", point, ":"];
+  
+  (* 计算数值Hessian矩阵 *)
+  eps = 0.001;
+  hessian = Table[0, {i, 3}, {j, 3}];
+  
+  (* 数值计算二阶导数 *)
+  For[i = 1, i <= 3, i++,
+    For[j = 1, j <= 3, j++,
+      (* 中心差分法 *)
+      If[i == j,
+        (* 二阶偏导 *)
+        xi = point[[i]];
+        hessian[[i, j]] = (
+          phi[point[[1]] + (If[i==1,eps,0]), 
+              point[[2]] + (If[i==2,eps,0]), 
+              point[[3]] + (If[i==3,eps,0])] +
+          phi[point[[1]] - (If[i==1,eps,0]), 
+              point[[2]] - (If[i==2,eps,0]), 
+              point[[3]] - (If[i==3,eps,0])] -
+          2 * phi[point[[1]], point[[2]], point[[3]]]
+        ) / (eps^2);
+      ,
+        (* 混合偏导 *)
+        xi = point[[i]]; xj = point[[j]];
+        hessian[[i, j]] = (
+          phi[point[[1]] + (If[i==1,eps,0]) + (If[j==1,eps,0]),
+              point[[2]] + (If[i==2,eps,0]) + (If[j==2,eps,0]),
+              point[[3]] + (If[i==3,eps,0]) + (If[j==3,eps,0])] -
+          phi[point[[1]] + (If[i==1,eps,0]) - (If[j==1,eps,0]),
+              point[[2]] + (If[i==2,eps,0]) - (If[j==2,eps,0]),
+              point[[3]] + (If[i==3,eps,0]) - (If[j==3,eps,0])] -
+          phi[point[[1]] - (If[i==1,eps,0]) + (If[j==1,eps,0]),
+              point[[2]] - (If[i==2,eps,0]) + (If[j==2,eps,0]),
+              point[[3]] - (If[i==3,eps,0]) + (If[j==3,eps,0])] +
+          phi[point[[1]] - (If[i==1,eps,0]) - (If[j==1,eps,0]),
+              point[[2]] - (If[i==2,eps,0]) - (If[j==2,eps,0]),
+              point[[3]] - (If[i==3,eps,0]) - (If[j==3,eps,0])]
+        ) / (4 * eps^2);
+      ]
+    ]
+  ];
+  
+  Print["Hessian矩阵（数值近似）:"];
+  Print[MatrixForm[hessian]];
+  eigenvalues = Eigenvalues[hessian] // N;
+  Print["特征值: ", eigenvalues];
+  
+  If[AllTrue[eigenvalues, Positive],
+    Print["所有特征值为正 → 极小值 → 理论上不可能存在"],
+    If[AllTrue[eigenvalues, Negative],
+      Print["所有特征值为负 → 极大值 → 理论上不可能存在"],
+      Print["特征值有正有负 → 鞍点 → 不稳定平衡"]
+    ]
+  ];
+];
