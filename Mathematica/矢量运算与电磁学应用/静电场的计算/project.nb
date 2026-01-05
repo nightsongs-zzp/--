@@ -1,55 +1,87 @@
-(* 静电场计算终极解决版（无符号嵌套+纯数值求解） *)
+(* 任务二：静电场的计算 *)
+
+(* ===================== 1. 点电荷系统 ===================== *)
 Clear["Global`*"];
 
-(* ========== 1. 定义纯数值电势/电场函数 ========== *)
-(* 总电势（纯数值计算） *)
-PotentialNum[x_, y_, z_] := Module[{r1, r2, r3},
-  r1 = Sqrt[(x - 1)^2 + y^2 + z^2];
-  r2 = Sqrt[(x + 1)^2 + y^2 + z^2];
-  r3 = Sqrt[x^2 + y^2 + (z - 1)^2];
-  1/r1 + 1/r2 - 2/r3  (* q=1, k=1 *)
-];
-
-(* 电场（用数值梯度计算，避免符号嵌套） *)
-EfieldNum[x_, y_, z_] := -N[Grad[PotentialNum[x, y, z], {x, y, z}]];
+(* 电荷与参数设置 *)
+q = 1; (* 电荷大小 *)
+k = 1; (* 库仑常数 k=1/(4\[Pi]\[CurlyEpsilon]₀) *)
+(* 电荷位置坐标 *)
+r1 = {1, 0, 0};   (* +q 位置 *)
+r2 = {-1, 0, 0};  (* +q 位置 *)
+r3 = {0, 0, 1};   (* -2q 位置 *)
 
 
-(* ========== 2. 绘制z=0平面图形（无符号冲突） ========== *)
-Print["=== 任务1：z=0平面等势线+电场线 ==="];
+(* 1.1 总电势 \[CurlyPhi](x,y,z) 的表达式 *)
+Print["=== 1.1 总电势 \[CurlyPhi](x,y,z) ==="];
+(* 电势叠加原理：\[CurlyPhi] = k\[CapitalSigma](qi / |r - ri|) *)
+phi[x_, y_, z_] := k (
+  q/Sqrt[(x - r1[[1]])^2 + (y - r1[[2]])^2 + (z - r1[[3]])^2] + 
+  q/Sqrt[(x - r2[[1]])^2 + (y - r2[[2]])^2 + (z - r2[[3]])^2] + 
+  (-2 q)/Sqrt[(x - r3[[1]])^2 + (y - r3[[2]])^2 + (z - r3[[3]])^2]
+);
+Print["总电势表达式：", phi[x, y, z], "\n"];
+
+
+(* 1.2 电场 E = -\[Del]\[CurlyPhi] 的计算 *)
+Print["=== 1.2 电场 E(x,y,z) ==="];
+(* 电场为电势的负梯度 *)
+Efield[x_, y_, z_] := -Grad[phi[x, y, z], {x, y, z}] // Simplify;
+Print["电场分量表达式：", Efield[x, y, z], "\n"];
+
+
+(* 1.3 绘制 z=0 平面的等势线与电场线 *)
+Print["=== 1.3 z=0 平面的等势线与电场线 ==="];
+(* 等势线（ContourPlot） *)
 pltContour = ContourPlot[
-  PotentialNum[x, y, 0], {x, -3, 3}, {y, -3, 3},
-  Contours -> 30, ContourStyle -> Hue[0.6],
-  PlotLabel -> "z=0平面等势线", AxesLabel -> {"x", "y"}, PlotLegends -> Automatic
+  phi[x, y, 0], {x, -3, 3}, {y, -3, 3},
+  Contours -> 30,
+  ContourStyle -> Hue[0.6],
+  PlotLabel -> "z=0平面等势线",
+  AxesLabel -> {"x", "y"},
+  PlotLegends -> Automatic
 ];
 
+(* 电场线（StreamPlot） *)
 pltStream = StreamPlot[
-  EfieldNum[x, y, 0][[1 ;; 2]], {x, -3, 3}, {y, -3, 3},
-  StreamStyle -> Red, PlotLabel -> "z=0平面电场线", AxesLabel -> {"x", "y"}
+  Efield[x, y, 0][[1 ;; 2]], (* 取x、y分量 *)
+  {x, -3, 3}, {y, -3, 3},
+  StreamStyle -> Red,
+  PlotLabel -> "z=0平面电场线",
+  AxesLabel -> {"x", "y"}
 ];
 
-Show[pltContour, pltStream, PlotLabel -> "等势线+电场线"];
-
-
-(* ========== 3. 求解电场零点（纯数值迭代） ========== *)
-Print["\n=== 任务2：电场零点求解 ==="];
-(* 定义z轴上的电场z分量（纯数值函数） *)
-EfieldZNum[z_] := EfieldNum[0, 0, z][[3]];
-
-(* 用数值迭代求解（指定精度，避免发散） *)
-zeroSolution = FindRoot[EfieldZNum[z] == 0, {z, 2}, WorkingPrecision -> 10];
-zeroPoint = {0, 0, z} /. zeroSolution;
-Print["电场零点坐标：", zeroPoint];
-
-
-(* ========== 4. 标注零点的叠加图 ========== *)
+(* 叠加图 *)
 Show[
   pltContour, pltStream,
-  ListPlot[{{0, 0}}, PlotStyle -> {Black, PointSize[0.02]}],
-  PlotLabel -> "等势线+电场线+电场零点"
-];
+  PlotLabel -> "z=0平面：等势线与电场线叠加"
+]
 
 
-(* ========== 5. 稳定性分析 ========== *)
-Print["\n=== 任务2：稳定性分析 ==="];
-Print["结论：该零点是不稳定平衡点。
-物理意义：正电荷在零点附近受电场力会远离，微小扰动破坏平衡。"]
+(* ===================== 2. 电场零点与平衡点 ===================== *)
+Print["\n=== 2.1 寻找电场零点（E=0） ==="];
+(* 利用对称性：电场零点在z轴上（x=0, y=0），简化为z的函数 *)
+EfieldZ[z_] := Efield[0, 0, z][[3]]; (* 取z轴上的电场z分量 *)
+
+(* 数值求解 E=0 的点 *)
+zeroPoint = FindRoot[EfieldZ[z] == 0, {z, 2}]; (* 初始猜测z=2 *)
+zeroCoord = {0, 0, z} /. zeroPoint; (* 零点坐标 *)
+Print["电场零点坐标：", zeroCoord, "\n"];
+
+
+(* 2.2 在图中标注零点 *)
+Print["=== 2.2 标注零点的叠加图 ==="];
+Show[
+  pltContour, pltStream,
+  ListPlot[
+    {{0, 0} /. {x -> 0, y -> 0}}, (* z=0平面上的投影 *)
+    PlotStyle -> {Black, PointSize[0.02]},
+    PlotLabel -> "z=0平面：等势线、电场线与电场零点"
+  ]
+]
+
+
+(* 2.3 平衡点的稳定性讨论 *)
+Print["\n=== 2.3 平衡点的稳定性分析 ==="];
+Print["结论：该电场零点是**不稳定平衡点**。
+物理意义：若电荷在零点附近沿z轴微小移动，电场力会使电荷远离零点，无法维持静止状态。"]
