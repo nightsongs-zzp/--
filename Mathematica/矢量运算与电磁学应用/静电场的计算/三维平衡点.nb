@@ -1,0 +1,86 @@
+(* 重新寻找三维平衡点 *)
+
+ClearAll["Global`*"]
+
+(* 参数 *)
+q = 1; k = 1;
+
+(* 电荷位置 *)
+pos1 = {1, 0, 0};   (* +q *)
+pos2 = {-1, 0, 0};  (* +q *)
+pos3 = {0, 0, 1};   (* -2q *)
+
+(* 电场分量 *)
+Ex[x_, y_, z_] := k * (
+  -q * (x - pos1[[1]]) / ((x - pos1[[1]])^2 + (y - pos1[[2]])^2 + (z - pos1[[3]])^2)^(3/2) -
+  q * (x - pos2[[1]]) / ((x - pos2[[1]])^2 + (y - pos2[[2]])^2 + (z - pos2[[3]])^2)^(3/2) +
+  2q * (x - pos3[[1]]) / ((x - pos3[[1]])^2 + (y - pos3[[2]])^2 + (z - pos3[[3]])^2)^(3/2)
+);
+
+Ey[x_, y_, z_] := k * (
+  -q * (y - pos1[[2]]) / ((x - pos1[[1]])^2 + (y - pos1[[2]])^2 + (z - pos1[[3]])^2)^(3/2) -
+  q * (y - pos2[[2]]) / ((x - pos2[[1]])^2 + (y - pos2[[2]])^2 + (z - pos2[[3]])^2)^(3/2) +
+  2q * (y - pos3[[2]]) / ((x - pos3[[1]])^2 + (y - pos3[[2]])^2 + (z - pos3[[3]])^2)^(3/2)
+);
+
+Ez[x_, y_, z_] := k * (
+  -q * (z - pos1[[3]]) / ((x - pos1[[1]])^2 + (y - pos1[[2]])^2 + (z - pos1[[3]])^2)^(3/2) -
+  q * (z - pos2[[3]]) / ((x - pos2[[1]])^2 + (y - pos2[[2]])^2 + (z - pos2[[3]])^2)^(3/2) +
+  2q * (z - pos3[[3]]) / ((x - pos3[[1]])^2 + (y - pos3[[2]])^2 + (z - pos3[[3]])^2)^(3/2)
+);
+
+(* 寻找三维平衡点 *)
+Print["寻找三维平衡点 (同时满足 Ex=Ey=Ez=0)..."];
+
+(* 由于对称性，在 y=0 的 xz 平面上寻找 *)
+(* 定义电场模的平方作为目标函数 *)
+fieldNormSquared[x_?NumericQ, z_?NumericQ] := 
+  Ex[x, 0, z]^2 + Ey[x, 0, z]^2 + Ez[x, 0, z]^2;
+
+(* 在合理区域内搜索 *)
+searchRegion = {{-0.8, 0.8}, {0.1, 0.8}};  (* {x范围, z范围} *)
+
+(* 使用数值优化寻找最小值 *)
+result = NMinimize[
+  {fieldNormSquared[x, z], 
+   -0.8 < x < 0.8, 0.1 < z < 0.8},  (* 避开电荷位置 *)
+  {x, z},
+  Method -> "NelderMead",
+  MaxIterations -> 200
+];
+
+Print["搜索结果:"];
+Print["最小 |E|^2 = ", result[[1]]];
+xOpt = x /. result[[2]];
+zOpt = z /. result[[2]];
+Print["位置: x = ", xOpt, ", z = ", zOpt];
+Print["电场分量: Ex = ", Ex[xOpt, 0, zOpt], 
+      ", Ey = ", Ey[xOpt, 0, zOpt], 
+      ", Ez = ", Ez[xOpt, 0, zOpt]];
+Print["|E| = ", Sqrt[fieldNormSquared[xOpt, zOpt]]];
+
+(* 检查是否接近零点 *)
+If[Sqrt[result[[1]]] < 0.001,
+  Print["\n找到接近的电场零点!"];
+  Print["平衡点位置: (", xOpt, ", 0, ", zOpt, ")"];
+,
+  Print["\n没有找到精确的电场零点，只有近似解"];
+  Print["可能这个电荷配置没有精确的电场零点"];
+];
+
+(* 可视化电场模在 xz 平面上的分布 *)
+densityPlot = DensityPlot[
+  Log10[fieldNormSquared[x, z] + 10^-10],  (* 对数尺度 *)
+  {x, -2, 2}, {z, -1, 2},
+  PlotRange -> All,
+  ColorFunction -> "Rainbow",
+  PlotLegends -> Automatic,
+  FrameLabel -> {"x", "z"},
+  PlotLabel -> "log10(|E|^2) 在 y=0 平面上的分布",
+  Epilog -> {
+    PointSize[0.03],
+    Red, Point[{1, 0}], Point[{-1, 0}],
+    Blue, Point[{0, 1}],
+    Green, Point[{xOpt, zOpt}], Text["近似平衡点", {xOpt, zOpt + 0.1}]
+  }
+]
