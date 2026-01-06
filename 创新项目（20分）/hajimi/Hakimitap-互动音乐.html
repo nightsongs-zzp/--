@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="description" content="哈基米版本的通过点击/触摸播放声音并出现变化图案的互动内容。">
+  <title>Hakimitap</title>
+  <style>
+    /* 基础样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      position: absolute;
+      overflow: hidden;
+      text-align: center;
+      background: #ff9ec7; /* 粉色背景，符合哈基米猫咪主题 */
+      color: #fff;
+      font-family: Quicksand, "游ゴシック", "Yu Gothic", "游ゴシック体", YuGothic, "Yu Gothic UI", "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "Meiryo UI", "メイリオ", Meiryo, sans-serif;
+      width: 100%;
+      height: 100%;
+    }
+
+    #view, #view canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .scene {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100;
+      width: 90%;
+      max-width: 640px;
+    }
+
+    /* 顶部场景 */
+    #scene_top {
+      display: block;
+    }
+
+    #scene_top h1 {
+      font-size: 1.5rem;
+      margin-bottom: 25px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    #scene_top h1:after {
+      content: " 🐱";
+      display: inline-block;
+      animation: bounce 1s infinite alternate;
+    }
+
+    @keyframes bounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-5px); }
+    }
+
+    .ok {
+      margin: 15px 0;
+    }
+
+    .attention {
+      font-size: 0.9rem;
+      margin-top: 25px;
+    }
+
+    .tit {
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    a {
+      color: #fff;
+      text-decoration: none;
+      border-bottom: dashed 1px #fff;
+    }
+
+    button, .btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 8px 20px;
+      transition: all 0.3s ease;
+      display: inline-block;
+    }
+
+    button:hover, .btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    /* 加载场景 */
+    #scene_loading {
+      display: none;
+    }
+
+    #scene_loading hr {
+      width: 0;
+      height: 1px;
+      background: #fff;
+      border: none;
+      transition: width 0.3s ease;
+    }
+
+    /* 主场景 */
+    #scene_main {
+      display: none;
+    }
+
+    #scene_main .attention {
+      pointer-events: none;
+    }
+
+    /* 关于场景 */
+    #about_cover {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      opacity: 0.5;
+      z-index: 900;
+      display: none;
+    }
+
+    #about {
+      background: #ff9ec7;
+      padding: 40px;
+      border-radius: 10px;
+      z-index: 1000;
+      display: none;
+    }
+
+    #about .close {
+      font-size: 2rem;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    #about .con {
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    #about .link {
+      margin-top: 20px;
+      line-height: 1.5;
+    }
+
+    /* 控制按钮 */
+    #bt_back, #bt_fs {
+      position: absolute;
+      z-index: 100;
+      padding: 10px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    #bt_back {
+      left: 0;
+    }
+
+    #bt_fs {
+      right: 0;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 640px) {
+      #scene_top h1 {
+        font-size: 1.2rem;
+        margin-bottom: 18px;
+      }
+
+      .attention {
+        font-size: 0.7rem;
+      }
+
+      .tit {
+        font-size: 0.9rem;
+      }
+
+      #about {
+        padding: 30px;
+      }
+
+      #about .close {
+        font-size: 1.8rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="view"></div>
+
+  <!-- 顶部场景 -->
+  <div id="scene_top" class="scene">
+    <h1>Hakimitap</h1>
+    <div class="ok">
+      <button id="bt_start">!开始!</button>
+    </div>
+    <p id="bt_about" class="btn">*关于*</p>
+    <div class="ok">
+      <p class="attention">※请打开声音并享受。</p>
+    </div>
+    <div class="ok">
+      <p class="tit"><strong>注意！改编内容，原项目: <a href="https://aidn.jp/mikutap">https://aidn.jp/mikutap</a></strong></p>
+    </div>
+  </div>
+
+  <!-- 加载场景 -->
+  <div id="scene_loading" class="scene">
+    <hr size="1" color="#fff">
+  </div>
+
+  <!-- 主场景 -->
+  <div id="scene_main" class="scene">
+    <div class="set">
+      <p class="attention">点击 &amp; 拖动或者按任意键! 聆听哈基米的声音~</p>
+      <p id="bt_feedback" class="btn">反馈: 开启</p>
+      <p id="bt_backtrack" class="btn">背景音乐: 开启</p>
+    </div>
+  </div>
+
+  <!-- 关于场景 -->
+  <div id="about_cover"></div>
+  <div id="about" class="scene">
+    <p class="close" id="bt_close">×</p>
+    <p class="con">声音来源 哈基米（猫叫拟声词衍生音源）</p>
+    <p class="con">作者 <a href="https://aidn.jp" target="_blank">daniwell</a></p>
+    <p class="link">灵感来源 <a href="http://patatap.com/" target="_blank">Patatap</a><br>(令人赞叹的网页!)</p>
+  </div>
+
+  <!-- 控制按钮 -->
+  <div id="bt_back">＜返回</div>
+  <div id="bt_fs">□全屏显示</div>
+
+  <script>
+    // Hakimitap - 基于Mikutap风格的哈基米互动音乐网站
+    document.addEventListener('DOMContentLoaded', function() {
+        // 主要DOM元素
+        const view = document.getElementById('view');
+        const sceneTop = document.getElementById('scene_top');
+        const sceneLoading = document.getElementById('scene_loading');
+        const sceneMain = document.getElementById('scene_main');
+        const about = document.getElementById('about');
+        const aboutCover = document.getElementById('about_cover');
+        const btStart = document.getElementById('bt_start');
+        const btAbout = document.getElementById('bt_about');
+        const btClose = document.getElementById('bt_close');
+        const btBack = document.getElementById('bt_back');
+        const btFs = document.getElementById('bt_fs');
+        const btFeedback = document.getElementById('bt_feedback');
+
+        // 音频相关变量
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+        let audioBuffers = {};
+        let feedbackEnabled = true;
+
+        // 哈基米音效文件路径
+        const audioFiles = {
+            ha: [
+                '归档-2025-7-11--23-41/哈1.wav',
+                '归档-2025-7-11--23-41/哈2.wav',
+                '归档-2025-7-11--23-41/哈3.wav',
+                '归档-2025-7-11--23-41/哈4.wav',
+                '归档-2025-7-11--23-41/哈5.wav'
+            ],
+            ji: [
+                '归档-2025-7-11--23-41/基1.wav',
+                '归档-2025-7-11--23-41/基2.wav',
+                '归档-2025-7-11--23-41/基3.wav',
+                '归档-2025-7-11--23-41/基4.wav',
+                '归档-2025-7-11--23-41/基5.wav',
+                '归档-2025-7-11--23-41/基6.wav',
+                '归档-2025-7-11--23-41/基7.wav',
+                '归档-2025-7-11--23-41/基8.wav'
+            ],
+            mi: [
+                '归档-2025-7-11--23-41/米1.wav',
+                '归档-2025-7-11--23-41/米2.wav',
+                '归档-2025-7-11--23-41/米3.wav',
+                '归档-2025-7-11--23-41/米4.wav',
+                '归档-2025-7-11--23-41/米5.wav',
+                '归档-2025-7-11--23-41/米6.wav',
+                '归档-2025-7-11--23-41/米7.wav',
+                '归档-2025-7-11--23-41/米8.wav'
+            ]
+        };
+
+        // 初始化音频
+        async function initAudio() {
+            for (const category in audioFiles) {
+                audioBuffers[category] = [];
+                for (const file of audioFiles[category]) {
+                    try {
+                        const response = await fetch(file);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        audioBuffers[category].push(audioBuffer);
+                    } catch (error) {
+                        console.error(`Error loading audio file ${file}:`, error);
+                    }
+                }
+            }
+        }
+
+        // 播放哈基米音效
+        function playHakimiSound(category) {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (!audioBuffers[category] || audioBuffers[category].length === 0) {
+                console.error(`No audio buffers for category: ${category}`);
+                return;
+            }
+
+            // 随机选择一个音效
+            const randomIndex = Math.floor(Math.random() * audioBuffers[category].length);
+            const audioBuffer = audioBuffers[category][randomIndex];
+
+            // 创建音频源并播放
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start();
+        }
+
+        // Canvas相关变量
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let shapes = [];
+        let animationId = null;
+
+        // 初始化Canvas尺寸
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, color, type) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.type = type;
+                this.size = Math.random() * 15 + 5;
+                this.speedX = (Math.random() - 0.5) * 10;
+                this.speedY = (Math.random() - 0.5) * 10;
+                this.life = 1;
+                this.decay = Math.random() * 0.02 + 0.01;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.speedY += 0.2; // 重力
+                this.life -= this.decay;
+                this.size *= 0.98;
+                this.rotation += this.rotationSpeed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // 根据类型绘制不同形状
+                if (this.type === 0) { // 圆形
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.type === 1) { // 方形
+                    ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                } else if (this.type === 2) { // 三角形
+                    ctx.beginPath();
+                    ctx.moveTo(0, -this.size);
+                    ctx.lineTo(-this.size, this.size);
+                    ctx.lineTo(this.size, this.size);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // 形状类
+        class Shape {
+            constructor(x, y, color, type) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.type = type;
+                this.size = 0;
+                this.maxSize = Math.random() * 100 + 50;
+                this.growth = Math.random() * 5 + 2;
+                this.life = 1;
+                this.decay = 0.01;
+                this.rotation = 0;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+            }
+
+            update() {
+                if (this.size < this.maxSize) {
+                    this.size += this.growth;
+                } else {
+                    this.life -= this.decay;
+                }
+                this.rotation += this.rotationSpeed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // 根据类型绘制不同形状
+                if (this.type === 0) { // 圆形
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (this.type === 1) { // 方形
+                    ctx.strokeRect(-this.size/2, -this.size/2, this.size, this.size);
+                } else if (this.type === 2) { // 星形
+                    const spikes = 5;
+                    const outerRadius = this.size;
+                    const innerRadius = this.size * 0.5;
+
+                    ctx.beginPath();
+                    for (let i = 0; i < spikes * 2; i++) {
+                        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                        const angle = (i * Math.PI) / spikes;
+                        const x = Math.cos(angle) * radius;
+                        const y = Math.sin(angle) * radius;
+
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // 创建粒子爆炸效果
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                const type = Math.floor(Math.random() * 3);
+                particles.push(new Particle(x, y, color, type));
+            }
+        }
+
+        // 创建形状
+        function createShape(x, y, color) {
+            const type = Math.floor(Math.random() * 3);
+            shapes.push(new Shape(x, y, color, type));
+        }
+
+        // 动画循环
+        function animate() {
+            // 半透明覆盖，创建拖尾效果
+            ctx.fillStyle = 'rgba(255, 158, 199, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 更新和绘制形状
+            for (let i = shapes.length - 1; i >= 0; i--) {
+                const shape = shapes[i];
+                shape.update();
+                shape.draw();
+
+                if (shape.life <= 0) {
+                    shapes.splice(i, 1);
+                }
+            }
+
+            // 更新和绘制粒子
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                particle.update();
+                particle.draw();
+
+                if (particle.life <= 0 || particle.y > canvas.height) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 初始化音频在页面加载完成后调用
+        initAudio();
+
+        // 处理点击/触摸事件
+        function handleInteraction(x, y) {
+            // 根据位置决定颜色和音效类型
+            let soundType, color;
+
+            // 将画布分为三个区域：上、中、下
+            if (y < canvas.height / 3) {
+                soundType = 'ha';
+                color = '#FF6B9D'; // 粉色
+            } else if (y < (canvas.height * 2) / 3) {
+                soundType = 'ji';
+                color = '#C66FBC'; // 紫色
+            } else {
+                soundType = 'mi';
+                color = '#7F7FD5'; // 蓝色
+            }
+
+            // 创建形状和粒子
+            createShape(x, y, color);
+            createParticles(x, y, color, 20);
+
+            // 播放哈基米音效
+            playHakimiSound(soundType);
+
+            // 如果启用了反馈，添加振动
+            if (feedbackEnabled && navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        // 事件监听器
+        canvas.addEventListener('mousedown', (e) => {
+            handleInteraction(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleInteraction(touch.clientX, touch.clientY);
+        });
+
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (sceneMain.style.display === 'block') {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                handleInteraction(x, y);
+            }
+        });
+
+        // 按钮事件
+        btStart.addEventListener('click', (e) => {
+            e.preventDefault();
+            sceneTop.style.display = 'none';
+            sceneLoading.style.display = 'block';
+
+            // 模拟加载过程
+            setTimeout(() => {
+                sceneLoading.style.display = 'none';
+                sceneMain.style.display = 'block';
+                view.appendChild(canvas);
+                animate();
+            }, 1000);
+        });
+
+        btAbout.addEventListener('click', (e) => {
+            e.preventDefault();
+            about.style.display = 'block';
+            aboutCover.style.display = 'block';
+        });
+
+        btClose.addEventListener('click', () => {
+            about.style.display = 'none';
+            aboutCover.style.display = 'none';
+        });
+
+        aboutCover.addEventListener('click', () => {
+            about.style.display = 'none';
+            aboutCover.style.display = 'none';
+        });
+
+        btBack.addEventListener('click', () => {
+            sceneMain.style.display = 'none';
+            sceneTop.style.display = 'block';
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            if (canvas.parentNode) {
+                canvas.parentNode.removeChild(canvas);
+            }
+        });
+
+        btFs.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        btFeedback.addEventListener('click', (e) => {
+            e.preventDefault();
+            feedbackEnabled = !feedbackEnabled;
+            btFeedback.textContent = `反馈: ${feedbackEnabled ? '开启' : '关闭'}`;
+        });
+
+
+
+        // 初始显示
+        sceneTop.style.display = 'block';
+    });
+  </script>
+</body>
+
+</html>

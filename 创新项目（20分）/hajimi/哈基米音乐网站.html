@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哈基米互动音乐</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .title {
+            position: absolute;
+            top: 30px;
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(90deg, #ff6ec7, #7873f5, #4fc3f7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 15px rgba(255, 110, 199, 0.5);
+            animation: pulse 2s infinite, gradientShift 5s infinite;
+            z-index: 10;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 90%;
+            max-width: 900px;
+            height: 70vh;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+
+        button {
+            padding: 12px 25px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 110, 199, 0.3);
+        }
+
+        button.active {
+            background: rgba(255, 110, 199, 0.3);
+            border-color: rgba(255, 110, 199, 0.5);
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            border-radius: 50%;
+        }
+
+        .info {
+            position: absolute;
+            top: 80px;
+            text-align: center;
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            z-index: 10;
+        }
+
+        .instruction {
+            position: absolute;
+            bottom: 100px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            z-index: 10;
+        }
+
+        .bgm-control {
+            position: absolute;
+            top: 130px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .bgm-control label {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .volume-slider {
+            width: 100px;
+            height: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #ff6ec7;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            background: #ff6ec7;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .visualizer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 0 10px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .visualizer-bar {
+            width: 4%;
+            background: linear-gradient(to top, rgba(255, 110, 199, 0.7), rgba(120, 115, 245, 0.7));
+            border-radius: 2px 2px 0 0;
+            transition: height 0.2s ease;
+        }
+
+        .hakimi-character {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, rgba(255, 110, 199, 0.8) 0%, rgba(120, 115, 245, 0.6) 70%, transparent 100%);
+            border-radius: 50%;
+            animation: float 4s ease-in-out infinite;
+            z-index: 6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .region-indicator {
+            position: absolute;
+            width: 100%;
+            height: 33.33%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: bold;
+            text-transform: uppercase;
+            pointer-events: none;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .region-indicator.top {
+            top: 0;
+            color: rgba(255, 110, 199, 0.3);
+        }
+
+        .region-indicator.middle {
+            top: 33.33%;
+            color: rgba(120, 115, 245, 0.3);
+        }
+
+        .region-indicator.bottom {
+            top: 66.66%;
+            color: rgba(79, 195, 247, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">哈基米互动音乐</h1>
+    <p class="info">点击画布创作你的音乐</p>
+
+    <div class="bgm-control">
+        <label>背景音乐</label>
+        <button id="bgmToggle">🔇</button>
+        <input type="range" class="volume-slider" id="bgmVolume" min="0" max="100" value="30">
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="musicCanvas"></canvas>
+        <div class="region-indicator top">哈</div>
+        <div class="region-indicator middle">基</div>
+        <div class="region-indicator bottom">米</div>
+        <div class="visualizer" id="visualizer"></div>
+        <div class="hakimi-character" id="hakimiCharacter">🐱</div>
+    </div>
+
+    <p class="instruction">点击不同区域触发不同音效 • 按住鼠标拖动创造连续节奏</p>
+    <div class="controls">
+        <button id="clearBtn">🗑️ 清除所有</button>
+        <button id="recordBtn">⏺️ 录制音乐</button>
+        <button id="playbackBtn">▶️ 播放录制</button>
+        <button id="randomBtn">🎲 随机节奏</button>
+        <button id="autoBtn">🤖 自动演奏</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('musicCanvas');
+            const ctx = canvas.getContext('2d');
+            const clearBtn = document.getElementById('clearBtn');
+            const recordBtn = document.getElementById('recordBtn');
+            const playbackBtn = document.getElementById('playbackBtn');
+            const bgmToggle = document.getElementById('bgmToggle');
+            const bgmVolume = document.getElementById('bgmVolume');
+            const randomBtn = document.getElementById('randomBtn');
+            const autoBtn = document.getElementById('autoBtn');
+            const visualizer = document.getElementById('visualizer');
+            const hakimiCharacter = document.getElementById('hakimiCharacter');
+
+            // 创建可视化条
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                bar.style.height = '5px';
+                visualizer.appendChild(bar);
+            }
+
+            // 背景音乐设置
+            let bgmEnabled = false;
+            let bgmGainNode = null;
+            let bgmOscillator = null;
+
+            // 创建背景音乐
+            function createBGM() {
+                if (!audioContext) return;
+
+                // 如果已有BGM，先停止
+                if (bgmOscillator) {
+                    bgmOscillator.stop();
+                    bgmOscillator = null;
+                }
+
+                if (!bgmEnabled) return;
+
+                // 创建音频节点
+                bgmOscillator = audioContext.createOscillator();
+                bgmGainNode = audioContext.createGain();
+
+                // 设置音量
+                const volume = bgmVolume.value / 100;
+                bgmGainNode.gain.value = volume * 0.1; // 降低背景音乐音量
+
+                // 连接节点
+                bgmOscillator.connect(bgmGainNode);
+                bgmGainNode.connect(audioContext.destination);
+
+                // 设置波形类型和频率
+                bgmOscillator.type = 'sine';
+                bgmOscillator.frequency.value = 220; // A3音符
+
+                // 创建简单的旋律
+                const now = audioContext.currentTime;
+                const melody = [
+                    { time: now, freq: 220, duration: 0.5 },  // A3
+                    { time: now + 0.5, freq: 246.94, duration: 0.5 },  // B3
+                    { time: now + 1, freq: 261.63, duration: 0.5 },  // C4
+                    { time: now + 1.5, freq: 293.66, duration: 0.5 },  // D4
+                    { time: now + 2, freq: 329.63, duration: 1 },  // E4
+                    { time: now + 3, freq: 293.66, duration: 0.5 },  // D4
+                    { time: now + 3.5, freq: 261.63, duration: 0.5 },  // C4
+                    { time: now + 4, freq: 246.94, duration: 1 },  // B3
+                ];
+
+                // 开始播放
+                bgmOscillator.start();
+
+                // 播放旋律
+                melody.forEach(note => {
+                    bgmOscillator.frequency.setValueAtTime(note.freq, note.time);
+                });
+
+                // 循环播放
+                setTimeout(() => {
+                    if (bgmEnabled) {
+                        createBGM();
+                    }
+                }, 5000);
+            }
+
+            // BGM控制
+            bgmToggle.addEventListener('click', () => {
+                bgmEnabled = !bgmEnabled;
+                bgmToggle.textContent = bgmEnabled ? '🔊' : '🔇';
+                bgmToggle.classList.toggle('active', bgmEnabled);
+
+                if (bgmEnabled) {
+                    createBGM();
+                } else if (bgmOscillator) {
+                    bgmOscillator.stop();
+                    bgmOscillator = null;
+                }
+            });
+
+            bgmVolume.addEventListener('input', () => {
+                if (bgmGainNode) {
+                    const volume = bgmVolume.value / 100;
+                    bgmGainNode.gain.value = volume * 0.1;
+                }
+            });
+
+            // 随机节奏功能
+            let randomInterval = null;
+
+            function createRandomRhythm() {
+                const regions = ['ha', 'ji', 'mi'];
+                const colors = ['#ff6ec7', '#7873f5', '#4fc3f7'];
+
+                // 随机选择区域和位置
+                const regionIndex = Math.floor(Math.random() * regions.length);
+                const region = regions[regionIndex];
+                const color = colors[regionIndex];
+
+                // 根据区域确定Y坐标
+                let y;
+                if (region === 'ha') {
+                    y = Math.random() * (canvas.height / 3);
+                } else if (region === 'ji') {
+                    y = canvas.height / 3 + Math.random() * (canvas.height / 3);
+                } else {
+                    y = (canvas.height * 2) / 3 + Math.random() * (canvas.height / 3);
+                }
+
+                // 随机X坐标
+                const x = Math.random() * canvas.width;
+
+                // 播放声音和创建视觉效果
+                playSound(region);
+                circles.push(new Circle(x, y, color, region));
+                createParticles(x, y, color);
+
+                // 移动哈基米角色
+                moveHakimiCharacter(x, y);
+            }
+
+            randomBtn.addEventListener('click', () => {
+                if (randomInterval) {
+                    clearInterval(randomInterval);
+                    randomInterval = null;
+                    randomBtn.classList.remove('active');
+                    randomBtn.textContent = '🎲 随机节奏';
+                } else {
+                    randomInterval = setInterval(createRandomRhythm, 500);
+                    randomBtn.classList.add('active');
+                    randomBtn.textContent = '⏹️ 停止随机';
+                }
+            });
+
+            // 自动演奏功能
+            let autoInterval = null;
+            let autoPattern = 0;
+
+            function createAutoPattern() {
+                // 预定义的几种模式
+                const patterns = [
+                    // 模式1：从上到下
+                    () => {
+                        const sequence = [
+                            { x: canvas.width / 2, y: canvas.height / 6, type: 'ha', color: '#ff6ec7' },
+                            { x: canvas.width / 2, y: canvas.height / 2, type: 'ji', color: '#7873f5' },
+                            { x: canvas.width / 2, y: canvas.height * 5 / 6, type: 'mi', color: '#4fc3f7' },
+                        ];
+                        return sequence;
+                    },
+                    // 模式2：从左到右
+                    () => {
+                        const sequence = [];
+                        for (let i = 0; i < 5; i++) {
+                            const x = (canvas.width / 6) * (i + 1);
+                            const y = canvas.height / 2;
+                            const types = ['ha', 'ji', 'mi'];
+                            const type = types[i % 3];
+                            const colors = ['#ff6ec7', '#7873f5', '#4fc3f7'];
+                            const color = colors[i % 3];
+                            sequence.push({ x, y, type, color });
+                        }
+                        return sequence;
+                    },
+                    // 模式3：圆形
+                    () => {
+                        const sequence = [];
+                        const count = 8;
+                        const centerX = canvas.width / 2;
+                        const centerY = canvas.height / 2;
+                        const radius = Math.min(canvas.width, canvas.height) / 3;
+
+                        for (let i = 0; i < count; i++) {
+                            const angle = (i / count) * Math.PI * 2;
+                            const x = centerX + Math.cos(angle) * radius;
+                            const y = centerY + Math.sin(angle) * radius;
+                            const types = ['ha', 'ji', 'mi'];
+                            const type = types[i % 3];
+                            const colors = ['#ff6ec7', '#7873f5', '#4fc3f7'];
+                            const color = colors[i % 3];
+                            sequence.push({ x, y, type, color });
+                        }
+                        return sequence;
+                    },
+                    // 模式4：随机
+                    () => {
+                        const sequence = [];
+                        const count = 5 + Math.floor(Math.random() * 5);
+
+                        for (let i = 0; i < count; i++) {
+                            const x = Math.random() * canvas.width;
+                            const regionIndex = Math.floor(Math.random() * 3);
+                            const types = ['ha', 'ji', 'mi'];
+                            const type = types[regionIndex];
+                            const colors = ['#ff6ec7', '#7873f5', '#4fc3f7'];
+                            const color = colors[regionIndex];
+
+                            // 根据类型确定Y坐标范围
+                            let y;
+                            if (type === 'ha') {
+                                y = Math.random() * (canvas.height / 3);
+                            } else if (type === 'ji') {
+                                y = canvas.height / 3 + Math.random() * (canvas.height / 3);
+                            } else {
+                                y = (canvas.height * 2) / 3 + Math.random() * (canvas.height / 3);
+                            }
+
+                            sequence.push({ x, y, type, color });
+                        }
+                        return sequence;
+                    }
+                ];
+
+                // 获取当前模式
+                const pattern = patterns[autoPattern % patterns.length]();
+                autoPattern++;
+
+                return pattern;
+            }
+
+            let autoSequence = [];
+            let autoIndex = 0;
+
+            function playAutoStep() {
+                if (autoIndex >= autoSequence.length) {
+                    // 获取新模式
+                    autoSequence = createAutoPattern();
+                    autoIndex = 0;
+                }
+
+                const step = autoSequence[autoIndex];
+                playSound(step.type);
+                circles.push(new Circle(step.x, step.y, step.color, step.type));
+                createParticles(step.x, step.y, step.color);
+                moveHakimiCharacter(step.x, step.y);
+
+                autoIndex++;
+            }
+
+            autoBtn.addEventListener('click', () => {
+                if (autoInterval) {
+                    clearInterval(autoInterval);
+                    autoInterval = null;
+                    autoBtn.classList.remove('active');
+                    autoBtn.textContent = '🤖 自动演奏';
+                } else {
+                    autoSequence = createAutoPattern();
+                    autoIndex = 0;
+                    autoInterval = setInterval(playAutoStep, 300);
+                    autoBtn.classList.add('active');
+                    autoBtn.textContent = '⏹️ 停止自动';
+                }
+            });
+
+            // 移动哈基米角色
+            function moveHakimiCharacter(x, y) {
+                // 添加过渡动画
+                hakimiCharacter.style.transition = 'all 0.5s ease';
+
+                // 计算新位置，确保角色在画布内
+                const characterSize = 80;
+                const newX = Math.max(characterSize/2, Math.min(canvas.width - characterSize/2, x));
+                const newY = Math.max(characterSize/2, Math.min(canvas.height - characterSize/2, y));
+
+                // 设置新位置
+                hakimiCharacter.style.left = `${newX - characterSize/2}px`;
+                hakimiCharacter.style.top = `${newY - characterSize/2}px`;
+
+                // 添加弹跳动画
+                hakimiCharacter.style.animation = 'none';
+                setTimeout(() => {
+                    hakimiCharacter.style.animation = 'float 4s ease-in-out infinite';
+                }, 10);
+
+                // 根据音效类型改变表情
+                const region = y < canvas.height / 3 ? 'ha' : y < canvas.height * 2 / 3 ? 'ji' : 'mi';
+                if (region === 'ha') {
+                    hakimiCharacter.textContent = '😺';
+                } else if (region === 'ji') {
+                    hakimiCharacter.textContent = '😸';
+                } else {
+                    hakimiCharacter.textContent = '😹';
+                }
+
+                // 恢复默认表情
+                setTimeout(() => {
+                    hakimiCharacter.textContent = '🐱';
+                }, 500);
+            }
+
+            // 更新可视化效果
+            function updateVisualizer() {
+                const bars = document.querySelectorAll('.visualizer-bar');
+                bars.forEach(bar => {
+                    const height = Math.random() * 50 + 5;
+                    bar.style.height = `${height}px`;
+                });
+            }
+
+            // 定期更新可视化效果
+            setInterval(updateVisualizer, 200);
+
+            // 设置canvas尺寸
+            function resizeCanvas() {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // 音频文件路径
+            const audioFiles = {
+                ha: [
+                    '归档-2025-7-11--23-41/哈1.wav',
+                    '归档-2025-7-11--23-41/哈2.wav',
+                    '归档-2025-7-11--23-41/哈3.wav',
+                    '归档-2025-7-11--23-41/哈4.wav',
+                    '归档-2025-7-11--23-41/哈5.wav'
+                ],
+                ji: [
+                    '归档-2025-7-11--23-41/基1.wav',
+                    '归档-2025-7-11--23-41/基2.wav',
+                    '归档-2025-7-11--23-41/基3.wav',
+                    '归档-2025-7-11--23-41/基4.wav',
+                    '归档-2025-7-11--23-41/基5.wav',
+                    '归档-2025-7-11--23-41/基6.wav',
+                    '归档-2025-7-11--23-41/基7.wav',
+                    '归档-2025-7-11--23-41/基8.wav'
+                ],
+                mi: [
+                    '归档-2025-7-11--23-41/米1.wav',
+                    '归档-2025-7-11--23-41/米2.wav',
+                    '归档-2025-7-11--23-41/米3.wav',
+                    '归档-2025-7-11--23-41/米4.wav',
+                    '归档-2025-7-11--23-41/米5.wav',
+                    '归档-2025-7-11--23-41/米6.wav',
+                    '归档-2025-7-11--23-41/米7.wav',
+                    '归档-2025-7-11--23-41/米8.wav'
+                ]
+            };
+
+            // 预加载所有音频
+            const audioElements = {};
+            let audioLoaded = 0;
+            const totalAudioFiles = Object.keys(audioFiles).reduce((acc, key) => acc + audioFiles[key].length, 0);
+
+            // 创建音频上下文
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContext();
+
+            // 加载音频文件
+            Object.keys(audioFiles).forEach(category => {
+                audioElements[category] = [];
+
+                audioFiles[category].forEach((file, index) => {
+                    const audio = new Audio();
+                    audio.src = file;
+                    audio.addEventListener('canplaythrough', () => {
+                        audioLoaded++;
+                        if (audioLoaded === totalAudioFiles) {
+                            console.log('所有音频已加载完成');
+                        }
+                    });
+                    audioElements[category][index] = audio;
+                });
+            });
+
+            // 粒子系统
+            const particles = [];
+
+            class Particle {
+                constructor(x, y, color) {
+                    this.x = x;
+                    this.y = y;
+                    this.color = color;
+                    this.size = Math.random() * 15 + 5;
+                    this.speedX = Math.random() * 3 - 1.5;
+                    this.speedY = Math.random() * 3 - 1.5;
+                    this.life = 100;
+                }
+
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    this.life -= 2;
+                    this.size *= 0.98;
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.life / 100;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            // 圆圈动画
+            const circles = [];
+
+            class Circle {
+                constructor(x, y, color, soundType) {
+                    this.x = x;
+                    this.y = y;
+                    this.radius = 0;
+                    this.maxRadius = Math.random() * 100 + 50;
+                    this.color = color;
+                    this.alpha = 1;
+                    this.soundType = soundType;
+                }
+
+                update() {
+                    if (this.radius < this.maxRadius) {
+                        this.radius += 3;
+                    } else {
+                        this.alpha -= 0.02;
+                    }
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // 记录和播放功能
+            let isRecording = false;
+            let recordedActions = [];
+            let recordStartTime = 0;
+            let isPlaying = false;
+
+            // 播放声音
+            function playSound(category) {
+                // 随机选择该类别的一个音频
+                const audioArray = audioElements[category];
+                const randomIndex = Math.floor(Math.random() * audioArray.length);
+                const audio = audioArray[randomIndex];
+
+                // 重置音频并播放
+                audio.currentTime = 0;
+                audio.play().catch(e => console.error('音频播放错误:', e));
+            }
+
+            // 创建粒子爆炸效果
+            function createParticles(x, y, color, count = 10) {
+                for (let i = 0; i < count; i++) {
+                    particles.push(new Particle(x, y, color));
+                }
+            }
+
+            // 动画循环
+            function animate() {
+                ctx.fillStyle = 'rgba(30, 30, 46, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 更新和绘制圆圈
+                for (let i = circles.length - 1; i >= 0; i--) {
+                    circles[i].update();
+                    circles[i].draw();
+
+                    if (circles[i].alpha <= 0) {
+                        circles.splice(i, 1);
+                    }
+                }
+
+                // 更新和绘制粒子
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    particles[i].draw();
+
+                    if (particles[i].life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+
+            // 处理画布点击
+            function handleCanvasClick(e) {
+                // 确保音频上下文已启动
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // 根据点击位置决定声音类型和颜色
+                let soundType, color;
+
+                // 将画布分为三个区域：上、中、下
+                if (y < canvas.height / 3) {
+                    soundType = 'ha';
+                    color = '#ff6ec7'; // 粉色
+                } else if (y < (canvas.height * 2) / 3) {
+                    soundType = 'ji';
+                    color = '#7873f5'; // 紫色
+                } else {
+                    soundType = 'mi';
+                    color = '#4fc3f7'; // 蓝色
+                }
+
+                // 播放声音
+                playSound(soundType);
+
+                // 创建圆圈和粒子
+                circles.push(new Circle(x, y, color, soundType));
+                createParticles(x, y, color);
+
+                // 移动哈基米角色
+                moveHakimiCharacter(x, y);
+
+                // 记录动作
+                if (isRecording) {
+                    recordedActions.push({
+                        time: Date.now() - recordStartTime,
+                        x: x,
+                        y: y,
+                        soundType: soundType
+                    });
+                }
+            }
+
+            canvas.addEventListener('click', handleCanvasClick);
+
+            // 处理鼠标拖动
+            let isMouseDown = false;
+            let lastTriggerTime = 0;
+
+            canvas.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                handleCanvasClick(e);
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (isMouseDown) {
+                    const now = Date.now();
+                    // 限制触发频率
+                    if (now - lastTriggerTime > 100) {
+                        handleCanvasClick(e);
+                        lastTriggerTime = now;
+                    }
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                isMouseDown = false;
+            });
+
+            // 清除按钮
+            clearBtn.addEventListener('click', () => {
+                circles.length = 0;
+                particles.length = 0;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            });
+
+            // 录制按钮
+            recordBtn.addEventListener('click', () => {
+                if (!isRecording) {
+                    isRecording = true;
+                    recordedActions = [];
+                    recordStartTime = Date.now();
+                    recordBtn.textContent = '停止录制';
+                    recordBtn.style.background = 'rgba(255, 110, 199, 0.3)';
+                } else {
+                    isRecording = false;
+                    recordBtn.textContent = '录制音乐';
+                    recordBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+
+                    if (recordedActions.length > 0) {
+                        playbackBtn.disabled = false;
+                    }
+                }
+            });
+
+            // 播放录制按钮
+            playbackBtn.addEventListener('click', () => {
+                if (recordedActions.length === 0 || isPlaying) return;
+
+                isPlaying = true;
+                playbackBtn.disabled = true;
+                playbackBtn.textContent = '播放中...';
+
+                // 按顺序播放录制的动作
+                recordedActions.forEach(action => {
+                    setTimeout(() => {
+                        // 确定颜色
+                        let color;
+                        if (action.soundType === 'ha') {
+                            color = '#ff6ec7';
+                        } else if (action.soundType === 'ji') {
+                            color = '#7873f5';
+                        } else {
+                            color = '#4fc3f7';
+                        }
+
+                        // 播放声音
+                        playSound(action.soundType);
+
+                        // 创建视觉效果
+                        circles.push(new Circle(action.x, action.y, color, action.soundType));
+                        createParticles(action.x, action.y, color);
+
+                        // 移动哈基米角色
+                        moveHakimiCharacter(action.x, action.y);
+
+                        // 检查是否是最后一个动作
+                        if (action === recordedActions[recordedActions.length - 1]) {
+                            setTimeout(() => {
+                                isPlaying = false;
+                                playbackBtn.disabled = false;
+                                playbackBtn.textContent = '播放录制';
+                            }, 1000);
+                        }
+                    }, action.time);
+                });
+            });
+
+            // 初始提示
+            setTimeout(() => {
+                // 创建一个演示圆圈
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                circles.push(new Circle(centerX, centerY, '#ff6ec7', 'ha'));
+                createParticles(centerX, centerY, '#ff6ec7', 20);
+                playSound('ha');
+                moveHakimiCharacter(centerX, centerY);
+
+                setTimeout(() => {
+                    circles.push(new Circle(centerX, centerY + 100, '#7873f5', 'ji'));
+                    createParticles(centerX, centerY + 100, '#7873f5', 20);
+                    playSound('ji');
+                    moveHakimiCharacter(centerX, centerY + 100);
+                }, 500);
+
+                setTimeout(() => {
+                    circles.push(new Circle(centerX, centerY + 200, '#4fc3f7', 'mi'));
+                    createParticles(centerX, centerY + 200, '#4fc3f7', 20);
+                    playSound('mi');
+                    moveHakimiCharacter(centerX, centerY + 200);
+                }, 1000);
+
+                // 显示背景音乐提示
+                setTimeout(() => {
+                    const info = document.querySelector('.info');
+                    info.textContent = '试试开启背景音乐，享受更完整的体验！';
+                    setTimeout(() => {
+                        info.textContent = '点击画布创作你的音乐';
+                    }, 3000);
+                }, 2000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

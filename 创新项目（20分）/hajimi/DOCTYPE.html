@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Mikutap 风格互动音乐演示（自动BPM + 本地音乐）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/meyda@5.6.3/dist/web/meyda.min.js"></script>
+<style>
+  body { margin: 0; height: 100vh; background: #111; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; }
+  #container { text-align: center; }
+  h1 { font-size: 24px; margin-bottom: 10px; }
+  p { opacity: 0.8; }
+  canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  #info { position: fixed; top: 20px; left: 20px; font-size: 18px; }
+  #fileSelector { margin-top: 10px; }
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>点击或滑动屏幕播放音符</h1>
+  <p>自动分析背景音乐节拍并联动</p>
+  <input type="file" id="fileSelector" accept="audio/*" />
+</div>
+<div id="info">BPM: 分析中... | 状态: 等待选择音乐</div>
+<canvas id="visualizer"></canvas>
+
+<script>
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+const ctx = new AudioContext();
+
+// 分析器
+const analyser = ctx.createAnalyser();
+analyser.fftSize = 2048;
+const bufferLength = analyser.frequencyBinCount;
+const dataArray = new Uint8Array(bufferLength);
+
+// 主音量
+const masterGain = ctx.createGain();
+masterGain.gain.value = 0.7;
+masterGain.connect(analyser);
+analyser.connect(ctx.destination);
+
+// 音频源（用于本地文件）
+let audioSource = null;
+let meydaAnalyzer = null;
+let currentBPM = 0;
+let bpmConfidence = 0;
+const infoDisplay = document.getElementById('info');
+
+// 音符池
+const notePool = [];
+const NOTE_DURATION = 0.5;
+const GLIDE_TIME = 0.03;
+const CROSSFADE = 0.05;
+
+function getFreeOsc() {
+  let osc = notePool.pop();
+  if (!osc) {
+    osc = ctx.createOscillator();
+    osc.freq = osc.frequency;
+    osc.gainNode = ctx.createGain();
+    osc.connect(osc.gainNode);
+    osc.gainNode.connect(masterGain);
+  }
+  return osc;
+}
+
+function playNote(freq, time = ctx.currentTime) {
+  const osc = getFreeOsc();
+  osc.type = 'sine';
+  osc.freq.setValueAtTime(220, time - GLIDE_TIME);
+  osc.freq.linearRampToValueAtTime(freq, time);
+  osc.gainNode.gain.setValueAtTime(0, time);
+  osc.gainNode.gain.linearRampToValueAtTime(0.5, time + CROSSFADE);
+  osc.gainNode.gain.linearRampToValueAtTime(0, time + NOTE_DURATION);
+  osc.start(time - GLIDE_TIME);
+  osc.stop(time + NOTE_DURATION + CROSSFADE);
+  setTimeout(() => notePool.push(osc), (NOTE_DURATION + CROSSFADE) * 1000);
+}
+
+// 自动 BPM 检测
+function startMeydaAnalysis() {
+  if (Meyda.isSupported && audioSource) {
+    stopMeyda(); // 先停止旧的分析
+    
+    meydaAnalyzer = Meyda.createMeydaAnalyzer({
+      audioContext: ctx,
+      source: audioSource,
+      bufferSize: 512,
+      featureExtractors: ['beatSpectrum'],
+      callback: features => {
+        const beatSpectrum = features.beatSpectrum;
+        let maxVal = 0;
+        let maxIndex = 0;
+        for (let i = 0; i < beatSpectrum.length; i++) {
+          if (beatSpectrum[i] > maxVal) {
+            maxVal = beatSpectrum[i];
+            maxIndex = i;
+          }
+        }
+        // 简单估算 BPM
+        const binWidth = 44100 / 512 / 2; // 假设 44.1kHz 采样率
+        const freq = maxIndex * binWidth;
+        const bpm = Math.round(freq * 60);
+        
+        if (bpm > 60 && bpm < 180) {
+          currentBPM = currentBPM * 0.7 + bpm * 0.3;
+          bpmConfidence = Math.min(1, bpmConfidence + 0.05);
+        } else {
+          bpmConfidence = Math.max(0, bpmConfidence - 0.05);
+        }
+        
+        infoDisplay.textContent = `BPM: ${Math.round(currentBPM)} (confidence: ${bpmConfidence.toFixed(2)}) | 状态: 正在播放`;
+      }
+    });
+    meydaAnalyzer.start();
+  }
+}
+
+function stopMeyda() {
+  if (meydaAnalyzer) {
+    meydaAnalyzer.stop();
+    meydaAnalyzer = null;
+  }
+}
+
+// 节拍同步
+let lastBeatTime = -Infinity;
+function scheduleNextBeat() {
+  const now = ctx.currentTime;
+  if (currentBPM > 0 && bpmConfidence > 0.5) {
+    const beatInterval = 60 / currentBPM;
+    if (now - lastBeatTime >= beatInterval - 0.05) {
+      lastBeatTime = now;
+      playNote(110, now); // 每拍低音
+    }
+  }
+  requestAnimationFrame(scheduleNextBeat);
+}
+
+// 可视化
+const canvas = document.getElementById('visualizer');
+const canvasCtx = canvas.getContext('2d');
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function drawSpectrum() {
+  analyser.getByteFrequencyData(dataArray);
+  canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+  const barWidth = (canvas.width / bufferLength) * 2.5;
+  let x = 0;
+  for (let i = 0; i < bufferLength; i++) {
+    const barHeight = (dataArray[i] / 255) * canvas.height / 2;
+    const hue = i / bufferLength * 360;
+    canvasCtx.fillStyle = `hsl(${hue}, 80%, 50%)`;
+    canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+    x += barWidth + 1;
+  }
+  requestAnimationFrame(drawSpectrum);
+}
+
+// 交互
+function playRandomNoteOnTouch(e) {
+  if (ctx.state === 'suspended') ctx.resume();
+  const x = e.clientX || (e.touches && e.touches[0].clientX);
+  const freq = 220 * Math.pow(2, Math.floor((x / window.innerWidth) * 24) / 12);
+  playNote(freq);
+}
+window.addEventListener('mousedown', playRandomNoteOnTouch);
+window.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  playRandomNoteOnTouch(e);
+}, { passive: false });
+
+// 本地文件播放
+document.getElementById('fileSelector').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const audioData = event.target.result;
+    
+    // 停止当前播放
+    if (audioSource) {
+      audioSource.stop();
+      audioSource = null;
+    }
+    stopMeyda();
+    
+    // 解码并播放
+    ctx.decodeAudioData(audioData, function(buffer) {
+      audioSource = ctx.createBufferSource();
+      audioSource.buffer = buffer;
+      audioSource.loop = true;
+      audioSource.connect(masterGain);
+      
+      if (ctx.state === 'suspended') ctx.resume();
+      audioSource.start(0);
+      startMeydaAnalysis();
+      infoDisplay.textContent = `BPM: 分析中... | 状态: 正在播放`;
+    });
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// 启动
+scheduleNextBeat();
+drawSpectrum();
+</script>
+</body>
+</html>

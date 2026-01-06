@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哈基米互动音乐</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #222;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            cursor: crosshair;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .header {
+            position: fixed;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(90deg, #ff6ec7, #7873f5, #4fc3f7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: pulse 2s infinite, gradientShift 5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        button {
+            padding: 12px 24px; /* 增大按钮尺寸，满足移动端最小点击区域要求 */
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            min-height: 48px; /* 确保按钮高度满足移动端最小点击区域 */
+            min-width: 48px; /* 确保按钮宽度满足移动端最小点击区域 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 110, 199, 0.3);
+        }
+
+        /* 移动端触摸反馈 */
+        button:active {
+            background: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .info {
+            position: fixed;
+            top: 70px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            z-index: 10;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 60px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #222;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-text {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .loading-status {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 15px;
+            min-height: 20px;
+            text-align: center;
+        }
+
+        .loading-bar {
+            width: 200px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6ec7, #7873f5, #4fc3f7);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading-character {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-15px) scale(1.1); }
+        }
+
+        .bgm-control {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 15px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .volume-slider {
+            width: 80px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #ff6ec7;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #ff6ec7;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .character {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            bottom: 150px;
+            right: 30px;
+            z-index: 5;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="loading-character">🐱</div>
+        <div class="loading-text">正在加载哈基米音效...</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="loadingProgress"></div>
+        </div>
+        <div class="loading-status" id="loadingStatus">准备音频系统...</div>
+    </div>
+
+    <div class="header">
+        <h1 class="title">哈基米互动音乐</h1>
+    </div>
+
+    <div class="info">
+        点击或拖动鼠标创作你的音乐
+    </div>
+
+    <div class="bgm-control">
+        <label>背景音乐</label>
+        <button id="bgmToggle">🔇</button>
+        <input type="range" class="volume-slider" id="bgmVolume" min="0" max="100" value="30">
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="footer">
+        提示：点击不同位置触发不同的"哈"、"基"、"米"音效 | 键盘快捷键：空格(背景音乐) R(录制) P(回放) C(清除) G(随机) 方向键/1-3(触发音效)
+    </div>
+
+    <div class="controls">
+        <button id="clearBtn">清除</button>
+        <button id="randomBtn">随机演奏</button>
+        <button id="recordBtn">录制</button>
+        <button id="playbackBtn">回放</button>
+    </div>
+
+    <div class="character">🐱</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const loading = document.getElementById('loading');
+            const loadingProgress = document.getElementById('loadingProgress');
+            const bgmToggle = document.getElementById('bgmToggle');
+            const bgmVolume = document.getElementById('bgmVolume');
+            const clearBtn = document.getElementById('clearBtn');
+            const randomBtn = document.getElementById('randomBtn');
+            const recordBtn = document.getElementById('recordBtn');
+            const playbackBtn = document.getElementById('playbackBtn');
+
+            // 设置canvas尺寸
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // 音频文件路径
+            const audioFiles = {
+                ha: [
+                    '归档-2025-7-11--23-41/哈1.wav',
+                    '归档-2025-7-11--23-41/哈2.wav',
+                    '归档-2025-7-11--23-41/哈3.wav',
+                    '归档-2025-7-11--23-41/哈4.wav',
+                    '归档-2025-7-11--23-41/哈5.wav'
+                ],
+                ji: [
+                    '归档-2025-7-11--23-41/基1.wav',
+                    '归档-2025-7-11--23-41/基2.wav',
+                    '归档-2025-7-11--23-41/基3.wav',
+                    '归档-2025-7-11--23-41/基4.wav',
+                    '归档-2025-7-11--23-41/基5.wav',
+                    '归档-2025-7-11--23-41/基6.wav',
+                    '归档-2025-7-11--23-41/基7.wav',
+                    '归档-2025-7-11--23-41/基8.wav'
+                ],
+                mi: [
+                    '归档-2025-7-11--23-41/米1.wav',
+                    '归档-2025-7-11--23-41/米2.wav',
+                    '归档-2025-7-11--23-41/米3.wav',
+                    '归档-2025-7-11--23-41/米4.wav',
+                    '归档-2025-7-11--23-41/米5.wav',
+                    '归档-2025-7-11--23-41/米6.wav',
+                    '归档-2025-7-11--23-41/米7.wav',
+                    '归档-2025-7-11--23-41/米8.wav'
+                ]
+            };
+
+            // 音频系统 - 优化为按需加载
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContext();
+            const audioElements = {};
+            const audioCache = {}; // 添加缓存机制
+            const loadingPromises = {}; // 存储加载中的Promise
+
+            // 初始化音频元素数组
+            Object.keys(audioFiles).forEach(category => {
+                audioElements[category] = [];
+                audioCache[category] = [];
+                loadingPromises[category] = [];
+
+                // 初始化缓存数组
+                audioFiles[category].forEach((file, index) => {
+                    audioCache[category][index] = null;
+                    loadingPromises[category][index] = null;
+                });
+            });
+
+            // 按需加载音频函数
+            async function loadAudioOnDemand(category, index) {
+                // 如果已经缓存，直接返回
+                if (audioCache[category][index]) {
+                    return audioCache[category][index];
+                }
+
+                // 如果正在加载中，返回Promise
+                if (loadingPromises[category][index]) {
+                    return loadingPromises[category][index];
+                }
+
+                // 创建新的加载Promise
+                const loadPromise = new Promise((resolve, reject) => {
+                    const audio = new Audio();
+                    audio.src = audioFiles[category][index];
+
+                    audio.addEventListener('canplaythrough', () => {
+                        audioCache[category][index] = audio;
+                        loadingPromises[category][index] = null;
+                        resolve(audio);
+                    });
+
+                    audio.addEventListener('error', (e) => {
+                        loadingPromises[category][index] = null;
+                        console.error(`音频加载失败: ${audioFiles[category][index]}`, e);
+                        reject(e);
+                    });
+
+                    // 开始加载
+                    audio.load();
+                });
+
+                // 存储Promise
+                loadingPromises[category][index] = loadPromise;
+
+                // 返回Promise
+                return loadPromise;
+            }
+
+            // 初始只加载每种类型的第一个音频文件 - 添加详细状态提示
+            async function initAudioLoading() {
+                const loadingStatus = document.getElementById('loadingStatus');
+                loadingProgress.style.width = '10%';
+
+                try {
+                    // 加载"哈"音效
+                    loadingStatus.textContent = '正在加载"哈"音效...';
+                    await loadAudioOnDemand('ha', 0);
+                    loadingProgress.style.width = '40%';
+
+                    // 加载"基"音效
+                    loadingStatus.textContent = '正在加载"基"音效...';
+                    await loadAudioOnDemand('ji', 0);
+                    loadingProgress.style.width = '70%';
+
+                    // 加载"米"音效
+                    loadingStatus.textContent = '正在加载"米"音效...';
+                    await loadAudioOnDemand('mi', 0);
+                    loadingProgress.style.width = '100%';
+
+                    // 加载完成
+                    loadingStatus.textContent = '音效加载完成，准备就绪！';
+
+                    setTimeout(() => {
+                        loading.style.opacity = '0';
+                        setTimeout(() => {
+                            loading.style.display = 'none';
+                        }, 500);
+                    }, 500);
+                } catch (error) {
+                    console.error('初始音频加载失败:', error);
+                    // 显示错误状态
+                    loadingStatus.textContent = '部分音效加载失败，但您可以继续使用';
+
+                    // 即使加载失败也隐藏加载界面，避免用户卡住
+                    setTimeout(() => {
+                        loading.style.opacity = '0';
+                        setTimeout(() => {
+                            loading.style.display = 'none';
+                        }, 500);
+                    }, 1500);
+                }
+            }
+
+            // 调用初始加载
+            initAudioLoading();
+
+            // 背景音乐系统
+            let bgmEnabled = false;
+            let bgmGainNode = null;
+            let bgmOscillator = null;
+
+            function createBGM() {
+                if (!audioContext) return;
+
+                if (bgmOscillator) {
+                    bgmOscillator.stop();
+                    bgmOscillator = null;
+                }
+
+                if (!bgmEnabled) return;
+
+                bgmOscillator = audioContext.createOscillator();
+                bgmGainNode = audioContext.createGain();
+
+                const volume = bgmVolume.value / 100;
+                bgmGainNode.gain.value = volume * 0.1;
+
+                bgmOscillator.connect(bgmGainNode);
+                bgmGainNode.connect(audioContext.destination);
+
+                bgmOscillator.type = 'sine';
+                bgmOscillator.frequency.value = 220;
+
+                const now = audioContext.currentTime;
+                const melody = [
+                    { time: now, freq: 220, duration: 0.5 },
+                    { time: now + 0.5, freq: 246.94, duration: 0.5 },
+                    { time: now + 1, freq: 261.63, duration: 0.5 },
+                    { time: now + 1.5, freq: 293.66, duration: 0.5 },
+                    { time: now + 2, freq: 329.63, duration: 1 },
+                    { time: now + 3, freq: 293.66, duration: 0.5 },
+                    { time: now + 3.5, freq: 261.63, duration: 0.5 },
+                    { time: now + 4, freq: 246.94, duration: 1 },
+                ];
+
+                bgmOscillator.start();
+
+                melody.forEach(note => {
+                    bgmOscillator.frequency.setValueAtTime(note.freq, note.time);
+                });
+
+                setTimeout(() => {
+                    if (bgmEnabled) {
+                        createBGM();
+                    }
+                }, 5000);
+            }
+
+            bgmToggle.addEventListener('click', () => {
+                bgmEnabled = !bgmEnabled;
+                bgmToggle.textContent = bgmEnabled ? '🔊' : '🔇';
+                bgmToggle.classList.toggle('active', bgmEnabled);
+
+                if (bgmEnabled) {
+                    createBGM();
+                } else if (bgmOscillator) {
+                    bgmOscillator.stop();
+                    bgmOscillator = null;
+                }
+            });
+
+            bgmVolume.addEventListener('input', () => {
+                if (bgmGainNode) {
+                    const volume = bgmVolume.value / 100;
+                    bgmGainNode.gain.value = volume * 0.1;
+                }
+            });
+
+            // 粒子系统 - 优化性能
+            const particles = [];
+            const maxParticles = 50; // 降低最大粒子数量
+
+            class Particle {
+                constructor(x, y, color) {
+                    this.x = x;
+                    this.y = y;
+                    this.color = color;
+                    this.size = Math.random() * 10 + 3; // 减小初始尺寸
+                    this.speedX = Math.random() * 4 - 2; // 减小速度范围
+                    this.speedY = Math.random() * 4 - 2;
+                    this.life = 100;
+                    this.decay = Math.random() * 0.8 + 0.7; // 加快衰减速度
+                    this.gravity = 0.05;
+                    this.rotation = Math.random() * Math.PI * 2;
+                    this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+                }
+
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    this.speedY += this.gravity;
+                    this.life -= this.decay;
+                    this.size *= 0.96; // 加快尺寸缩减
+                    this.rotation += this.rotationSpeed;
+                }
+
+                // 优化粒子更新逻辑，提前过滤超出画布的粒子
+                isInBounds() {
+                    return this.life > 0 && 
+                           this.x > -50 && this.x < canvas.width + 50 && 
+                           this.y > -50 && this.y < canvas.height + 50;
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.life / 100;
+                    ctx.fillStyle = this.color;
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.rotation);
+                    ctx.beginPath();
+                    // 简化星形绘制，减少计算量
+                    const spikes = 5;
+                    const outerRadius = this.size;
+                    const innerRadius = this.size * 0.5;
+
+                    for (let i = 0; i < spikes * 2; i++) {
+                        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                        const angle = (i * Math.PI) / spikes;
+                        const x = Math.cos(angle) * radius;
+                        const y = Math.sin(angle) * radius;
+
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            // 圆圈动画系统
+            const circles = [];
+
+            class Circle {
+                constructor(x, y, color, soundType) {
+                    this.x = x;
+                    this.y = y;
+                    this.radius = 0;
+                    this.maxRadius = Math.random() * 100 + 50;
+                    this.color = color;
+                    this.alpha = 1;
+                    this.soundType = soundType;
+                    this.pulsePhase = 0; // 添加脉冲相位
+                    this.innerCircles = []; // 内部圆圈
+
+                    // 创建内部圆圈
+                    const innerCount = Math.floor(Math.random() * 3) + 1;
+                    for (let i = 0; i < innerCount; i++) {
+                        this.innerCircles.push({
+                            radius: 0,
+                            maxRadius: this.maxRadius * (0.3 + Math.random() * 0.4),
+                            delay: i * 5,
+                            alpha: 1
+                        });
+                    }
+                }
+
+                update() {
+                    if (this.radius < this.maxRadius) {
+                        this.radius += 3;
+                    } else {
+                        this.alpha -= 0.02;
+                    }
+
+                    // 添加脉冲效果
+                    this.pulsePhase += 0.1;
+
+                    // 更新内部圆圈
+                    this.innerCircles.forEach(circle => {
+                        if (circle.delay > 0) {
+                            circle.delay--;
+                        } else if (circle.radius < circle.maxRadius) {
+                            circle.radius += 2;
+                        } else {
+                            circle.alpha -= 0.02;
+                        }
+                    });
+                }
+
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+
+                    // 绘制主圆圈
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 2 + Math.sin(this.pulsePhase) * 1; // 脉冲线宽
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // 绘制内部圆圈
+                    this.innerCircles.forEach(circle => {
+                        if (circle.delay <= 0) {
+                            ctx.save();
+                            ctx.globalAlpha = this.alpha * circle.alpha;
+                            ctx.strokeStyle = this.color;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, circle.radius, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    });
+
+                    ctx.restore();
+                }
+            }
+
+            // 播放声音 - 适配按需加载系统
+            async function playSound(category) {
+                // 确保音频上下文已启动
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                try {
+                    // 获取该类型的音频文件数量
+                    const fileCount = audioFiles[category].length;
+                    if (fileCount === 0) return;
+
+                    // 随机选择一个索引
+                    const randomIndex = Math.floor(Math.random() * fileCount);
+
+                    // 按需加载音频
+                    const audio = await loadAudioOnDemand(category, randomIndex);
+
+                    // 播放音频
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.error('音频播放错误:', e));
+                } catch (error) {
+                    console.error(`播放${category}类型音频失败:`, error);
+                    // 如果出错，尝试播放默认的第一个音频文件
+                    try {
+                        const audio = await loadAudioOnDemand(category, 0);
+                        audio.currentTime = 0;
+                        audio.play().catch(e => console.error('默认音频播放错误:', e));
+                    } catch (fallbackError) {
+                        console.error('播放默认音频也失败:', fallbackError);
+                    }
+                }
+            }
+
+            // 创建粒子爆炸效果
+            function createParticles(x, y, color, count = 10) {
+                // 限制粒子数量以提高性能
+                const particlesToCreate = Math.min(count, maxParticles - particles.length);
+
+                for (let i = 0; i < particlesToCreate; i++) {
+                    particles.push(new Particle(x, y, color));
+                }
+            }
+
+            // 录制和播放功能
+            let isRecording = false;
+            let recordedActions = [];
+            let recordStartTime = 0;
+            let isPlaying = false;
+
+            // 添加鼠标位置跟踪
+            let lastMouseX = null;
+            let lastMouseY = null;
+
+            // 动画循环 - 优化性能
+            function animate() {
+                // 清除画布 - 使用requestAnimationFrame确保帧率稳定
+                ctx.fillStyle = 'rgba(34, 34, 34, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 更新和绘制圆圈
+                for (let i = circles.length - 1; i >= 0; i--) {
+                    circles[i].update();
+                    circles[i].draw();
+
+                    if (circles[i].alpha <= 0) {
+                        circles.splice(i, 1);
+                    }
+                }
+
+                // 优化粒子更新和绘制 - 提前过滤超出画布的粒子
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const particle = particles[i];
+                    particle.update();
+
+                    // 使用isInBounds方法提前过滤
+                    if (!particle.isInBounds()) {
+                        particles.splice(i, 1);
+                        continue;
+                    }
+
+                    particle.draw();
+                }
+
+                // 更新小猫角色位置
+                const character = document.querySelector('.character');
+                if (character) {
+                    // 添加微妙的鼠标跟随效果
+                    const mouseX = lastMouseX || canvas.width / 2;
+                    const mouseY = lastMouseY || canvas.height / 2;
+                    const offsetX = (mouseX - canvas.width / 2) * 0.05;
+                    const offsetY = (mouseY - canvas.height / 2) * 0.05;
+                    character.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                }
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+
+            // 区域高亮效果
+            let highlightTimeout = null;
+            let currentHighlight = null;
+
+            // 创建区域高亮元素
+            function createHighlightElement() {
+                const highlight = document.createElement('div');
+                highlight.style.position = 'fixed';
+                highlight.style.pointerEvents = 'none';
+                highlight.style.zIndex = '5';
+                highlight.style.transition = 'opacity 0.3s ease';
+                highlight.style.opacity = '0';
+                document.body.appendChild(highlight);
+                return highlight;
+            }
+
+            // 初始化高亮元素
+            const areaHighlight = createHighlightElement();
+
+            // 显示区域高亮
+            function showAreaHighlight(soundType, x, y) {
+                // 清除之前的高亮计时器
+                if (highlightTimeout) {
+                    clearTimeout(highlightTimeout);
+                }
+
+                // 设置高亮颜色
+                let color;
+                if (soundType === 'ha') {
+                    color = 'rgba(255, 110, 199, 0.2)'; // 半透明粉色
+                } else if (soundType === 'ji') {
+                    color = 'rgba(120, 115, 245, 0.2)'; // 半透明紫色
+                } else {
+                    color = 'rgba(79, 195, 247, 0.2)'; // 半透明蓝色
+                }
+
+                // 设置高亮区域
+                let top, height;
+                if (soundType === 'ha') {
+                    top = 0;
+                    height = canvas.height / 3;
+                } else if (soundType === 'ji') {
+                    top = canvas.height / 3;
+                    height = canvas.height / 3;
+                } else {
+                    top = (canvas.height * 2) / 3;
+                    height = canvas.height / 3;
+                }
+
+                // 应用高亮样式
+                areaHighlight.style.left = '0';
+                areaHighlight.style.top = `${top}px`;
+                areaHighlight.style.width = '100%';
+                areaHighlight.style.height = `${height}px`;
+                areaHighlight.style.backgroundColor = color;
+                areaHighlight.style.opacity = '1';
+
+                // 设置高亮消失计时器
+                highlightTimeout = setTimeout(() => {
+                    areaHighlight.style.opacity = '0';
+                }, 300);
+            }
+
+            // 处理画布点击 - 增加交互反馈
+            function handleCanvasClick(x, y) {
+                // 根据点击位置决定声音类型和颜色
+                let soundType, color;
+
+                // 将画布分为三个区域：上、中、下
+                if (y < canvas.height / 3) {
+                    soundType = 'ha';
+                    color = '#ff6ec7'; // 粉色
+                } else if (y < (canvas.height * 2) / 3) {
+                    soundType = 'ji';
+                    color = '#7873f5'; // 紫色
+                } else {
+                    soundType = 'mi';
+                    color = '#4fc3f7'; // 蓝色
+                }
+
+                // 显示区域高亮
+                showAreaHighlight(soundType, x, y);
+
+                // 移动端触感反馈
+                if (navigator.vibrate) {
+                    navigator.vibrate(50); // 短振动50毫秒
+                }
+
+                // 播放声音
+                playSound(soundType);
+
+                // 创建圆圈和粒子 - 增加数量以增强反馈
+                circles.push(new Circle(x, y, color, soundType));
+                createParticles(x, y, color, 15); // 增加粒子数量
+
+                // 记录动作
+                if (isRecording) {
+                    recordedActions.push({
+                        time: Date.now() - recordStartTime,
+                        x: x,
+                        y: y,
+                        soundType: soundType
+                    });
+                }
+            }
+
+            // 鼠标事件
+            let isMouseDown = false;
+            let lastTriggerTime = 0;
+
+            canvas.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                handleCanvasClick(e.clientX, e.clientY);
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                // 更新鼠标位置
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+
+                if (isMouseDown) {
+                    const now = Date.now();
+                    if (now - lastTriggerTime > 100) {
+                        handleCanvasClick(e.clientX, e.clientY);
+                        lastTriggerTime = now;
+                    }
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                isMouseDown = false;
+            });
+
+            // 触摸事件支持 - 优化移动端体验
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isMouseDown = true;
+                const touch = e.touches[0];
+                handleCanvasClick(touch.clientX, touch.clientY);
+
+                // 触摸开始时立即更新鼠标位置
+                lastMouseX = touch.clientX;
+                lastMouseY = touch.clientY;
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+
+                // 更新鼠标位置
+                lastMouseX = touch.clientX;
+                lastMouseY = touch.clientY;
+
+                if (isMouseDown) {
+                    const now = Date.now();
+                    // 增加触发间隔，减少触摸密集度，提高性能
+                    if (now - lastTriggerTime > 150) {
+                        handleCanvasClick(touch.clientX, touch.clientY);
+                        lastTriggerTime = now;
+                    }
+                }
+            });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                isMouseDown = false;
+            });
+
+            // 添加触摸取消事件处理
+            canvas.addEventListener('touchcancel', (e) => {
+                e.preventDefault();
+                isMouseDown = false;
+            });
+
+            // 清除按钮
+            clearBtn.addEventListener('click', () => {
+                circles.length = 0;
+                particles.length = 0;
+            });
+
+            // 随机节奏功能
+            let randomInterval = null;
+            let randomPatterns = [
+                // 创建几种节奏模式
+                { pattern: ['ha', 'ha', 'ji', 'mi'], interval: 400 },
+                { pattern: ['ha', 'ji', 'ha', 'mi', 'ji'], interval: 300 },
+                { pattern: ['mi', 'mi', 'ji', 'ha', 'ha'], interval: 350 },
+                { pattern: ['ha', 'ji', 'mi', 'ha', 'ji', 'mi'], interval: 250 }
+            ];
+            let currentPatternIndex = 0;
+            let currentStepIndex = 0;
+
+            function createRandomRhythm() {
+                const regions = ['ha', 'ji', 'mi'];
+                const colors = ['#ff6ec7', '#7873f5', '#4fc3f7'];
+
+                // 使用预定义的节奏模式
+                const currentPattern = randomPatterns[currentPatternIndex];
+                const region = currentPattern.pattern[currentStepIndex];
+                const color = colors[regions.indexOf(region)];
+
+                // 更新步骤索引
+                currentStepIndex++;
+                if (currentStepIndex >= currentPattern.pattern.length) {
+                    currentStepIndex = 0;
+                    // 随机切换到下一个模式
+                    currentPatternIndex = Math.floor(Math.random() * randomPatterns.length);
+                    // 更新间隔
+                    if (randomInterval) {
+                        clearInterval(randomInterval);
+                        randomInterval = setInterval(createRandomRhythm, currentPattern.interval);
+                    }
+                }
+
+                let y;
+                if (region === 'ha') {
+                    y = Math.random() * (canvas.height / 3);
+                } else if (region === 'ji') {
+                    y = canvas.height / 3 + Math.random() * (canvas.height / 3);
+                } else {
+                    y = (canvas.height * 2) / 3 + Math.random() * (canvas.height / 3);
+                }
+
+                const x = Math.random() * canvas.width;
+
+                playSound(region);
+                circles.push(new Circle(x, y, color, region));
+                createParticles(x, y, color, 15); // 增加粒子数量
+            }
+
+            randomBtn.addEventListener('click', () => {
+                if (randomInterval) {
+                    clearInterval(randomInterval);
+                    randomInterval = null;
+                    randomBtn.textContent = '随机演奏';
+                } else {
+                    // 重置模式索引
+                    currentPatternIndex = 0;
+                    currentStepIndex = 0;
+                    // 开始随机演奏
+                    createRandomRhythm(); // 立即触发第一个
+                    const initialPattern = randomPatterns[0];
+                    randomInterval = setInterval(createRandomRhythm, initialPattern.interval);
+                    randomBtn.textContent = '停止随机';
+                }
+            });
+
+            // 录制按钮
+            recordBtn.addEventListener('click', () => {
+                if (!isRecording) {
+                    isRecording = true;
+                    recordedActions = [];
+                    recordStartTime = Date.now();
+                    recordBtn.textContent = '停止录制';
+                    recordBtn.classList.add('active');
+                } else {
+                    isRecording = false;
+                    recordBtn.textContent = '录制';
+                    recordBtn.classList.remove('active');
+
+                    if (recordedActions.length > 0) {
+                        playbackBtn.disabled = false;
+                    }
+                }
+            });
+
+            // 播放录制按钮
+            playbackBtn.addEventListener('click', () => {
+                if (recordedActions.length === 0 || isPlaying) return;
+
+                isPlaying = true;
+                playbackBtn.disabled = true;
+                playbackBtn.textContent = '播放中...';
+
+                recordedActions.forEach(action => {
+                    setTimeout(() => {
+                        let color;
+                        if (action.soundType === 'ha') {
+                            color = '#ff6ec7';
+                        } else if (action.soundType === 'ji') {
+                            color = '#7873f5';
+                        } else {
+                            color = '#4fc3f7';
+                        }
+
+                        playSound(action.soundType);
+                        circles.push(new Circle(action.x, action.y, color, action.soundType));
+                        createParticles(action.x, action.y, color);
+
+                        if (action === recordedActions[recordedActions.length - 1]) {
+                            setTimeout(() => {
+                                isPlaying = false;
+                                playbackBtn.disabled = false;
+                                playbackBtn.textContent = '回放';
+                            }, 1000);
+                        }
+                    }, action.time);
+                });
+            });
+
+            // 键盘快捷键支持
+            document.addEventListener('keydown', (e) => {
+                // 防止在输入框中触发
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                switch(e.key) {
+                    // 空格键：播放/暂停背景音乐
+                    case ' ':
+                        e.preventDefault();
+                        bgmToggle.click();
+                        break;
+                    // R键：开始/停止录制
+                    case 'r':
+                    case 'R':
+                        recordBtn.click();
+                        break;
+                    // P键：回放录制
+                    case 'p':
+                    case 'P':
+                        if (!playbackBtn.disabled) {
+                            playbackBtn.click();
+                        }
+                        break;
+                    // C键：清除画布
+                    case 'c':
+                    case 'C':
+                        clearBtn.click();
+                        break;
+                    // G键：随机演奏
+                    case 'g':
+                    case 'G':
+                        randomBtn.click();
+                        break;
+                    // 方向键：触发不同区域音效
+                    case 'ArrowUp':
+                        // 上区域 - "哈"
+                        handleCanvasClick(canvas.width / 2, canvas.height / 6);
+                        break;
+                    case 'ArrowDown':
+                        // 下区域 - "米"
+                        handleCanvasClick(canvas.width / 2, canvas.height * 5 / 6);
+                        break;
+                    case 'ArrowLeft':
+                        // 中区域左侧 - "基"
+                        handleCanvasClick(canvas.width / 3, canvas.height / 2);
+                        break;
+                    case 'ArrowRight':
+                        // 中区域右侧 - "基"
+                        handleCanvasClick(canvas.width * 2 / 3, canvas.height / 2);
+                        break;
+                    // 数字键1-3：直接触发对应音效
+                    case '1':
+                        handleCanvasClick(canvas.width / 2, canvas.height / 6);
+                        break;
+                    case '2':
+                        handleCanvasClick(canvas.width / 2, canvas.height / 2);
+                        break;
+                    case '3':
+                        handleCanvasClick(canvas.width / 2, canvas.height * 5 / 6);
+                        break;
+                }
+            });
+
+            // 初始演示
+            setTimeout(() => {
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                circles.push(new Circle(centerX, centerY, '#ff6ec7', 'ha'));
+                createParticles(centerX, centerY, '#ff6ec7', 20);
+                playSound('ha');
+
+                setTimeout(() => {
+                    circles.push(new Circle(centerX, centerY + 100, '#7873f5', 'ji'));
+                    createParticles(centerX, centerY + 100, '#7873f5', 20);
+                    playSound('ji');
+                }, 500);
+
+                setTimeout(() => {
+                    circles.push(new Circle(centerX, centerY + 200, '#4fc3f7', 'mi'));
+                    createParticles(centerX, centerY + 200, '#4fc3f7', 20);
+                    playSound('mi');
+                }, 1000);
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
