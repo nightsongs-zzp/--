@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate
 
+# 解决中文显示问题的核心代码
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置默认字体为黑体（支持中文）
+plt.rcParams['axes.unicode_minus'] = False    # 解决负号显示为方块的问题
+
 # 定义被积函数
 def integrand(x):
     return np.exp(-x**2)

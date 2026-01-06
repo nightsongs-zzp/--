@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+# 解决中文显示问题的核心代码
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置默认字体为黑体（支持中文）
+plt.rcParams['axes.unicode_minus'] = False    # 解决负号显示为方块的问题
+
 # 高斯函数
 def gaussian(x):
     return np.exp(-x**2)
