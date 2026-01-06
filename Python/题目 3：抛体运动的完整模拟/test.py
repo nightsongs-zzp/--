@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from scipy.integrate import solve_ivp
 
+# 解决中文显示问题的核心代码
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 设置默认字体为黑体（支持中文）
+plt.rcParams['axes.unicode_minus'] = False    # 解决负号显示为方块的问题
+
+
 # ============ 1. 无空气阻力的抛体运动 ============
 
 def projectile_motion_no_drag(v0, theta, g=9.8):
@@ -338,7 +343,7 @@ def create_animation():
     return ani
 
 # 运行动画（取消注释以运行）
-# ani = create_animation()
+ani = create_animation()
 
 # ============ 结果分析与总结 ============
 
